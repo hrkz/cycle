@@ -1,0 +1,13 @@
+## Core latex/pdflatex auxiliary files:
+*.aux
+*.lof
+*.log
+
+## Compressed files:
+*.zip
+*.tar
+*.gz
+
+## Added by Cargo
+/target
+Cargo.lock

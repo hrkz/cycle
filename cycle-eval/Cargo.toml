@@ -1,0 +1,11 @@
+[package]
+name = "cycle-eval"
+version = "0.1.0"
+authors = ["hrkz <hugo.frezat@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+cycle = { path = ".." }
+
+[lib]
+proc-macro = true

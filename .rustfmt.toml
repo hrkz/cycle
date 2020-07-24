@@ -1,0 +1,4 @@
+tab_spaces = 2
+max_width = 180
+
+fn_single_line = true

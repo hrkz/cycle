@@ -1,0 +1,18 @@
+[package]
+name = "cycle"
+version = "0.0.1"
+authors = ["hrkz <hugo.frezat@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+
+[[bin]]
+name = "main"
+path = "bin/main.rs"
+doc = false
+
+[workspace]
+members = [
+  "cycle-eval",
+  "cycle-num"
+]

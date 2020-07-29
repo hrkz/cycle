@@ -1,10 +1,11 @@
 <div align="center">
 
-[![Cycle](https://github.com/hrkz/cycle/blob/gh-pages/images/cycle_logo.png)](https://cycle-research.org)
+[![Cycle](https://raw.githubusercontent.com/hrkz/cycle/gh-pages/images/cycle_logo.png)](https://cycle-research.org)
 
-[![GitHub license](https://img.shields.io/github/license/hrkz/cycle.svg?color=informational&style=flat-square)](https://github.com/hrkz/cycle/blob/master/LICENSE)
 [![Build](https://img.shields.io/github/workflow/status/hrkz/cycle/CI?style=flat-square)](https://github.com/hrkz/cycle/actions)
-[![Issues](https://img.shields.io/github/issues/hrkz/cycle.svg?style=flat-square)](https://github.com/hrkz/cycle/issues)
+[![Crate](https://img.shields.io/crates/v/cycle?style=flat-square)](https://crates.io/crates/cycle)
+[![License](https://img.shields.io/github/license/hrkz/cycle.svg?color=informational&style=flat-square)](https://github.com/hrkz/cycle/blob/master/LICENSE)
+[![Milestones](https://img.shields.io/github/milestones/open/hrkz/cycle?label=milestones&style=flat-square)](https://github.com/hrkz/cycle/milestones)
 
 </div>
 <hr>
@@ -27,7 +28,7 @@ simulations in a pleasant way, with performance and modularity.
 
 ## Getting started
 
-To use cycle, you will need [Git](https://git-scm.com/) for cloning and a modern [Rust](https://www.rust-lang.org/) version with Cargo for the compilation and testing,
+To use cycle, you will need [Git](https://git-scm.com/) for cloning and a modern [Rust](https://www.rust-lang.org/) version with [Cargo](https://doc.rust-lang.org/stable/cargo/) for the compilation and testing,
 ```bash
 # Clone the repository
 $ git clone https://github.com/hrkz/cycle && cd cycle
@@ -37,12 +38,12 @@ $ cargo build
 $ cargo test # Run tests (optional)
 $ cargo run # Run the interpreter (optional)
 ```
-or with [Cargo](https://doc.rust-lang.org/stable/cargo/)
+or with the crate
 ```toml
 [dependencies]
-cycle = "0.0.1"
+cycle = "0.0.2"
 ```
 
 | Plans |       |
 | :----:| :----:|
-| [:books: wiki](https://github.com/hrkz/cycle/wiki) | To get started with the library, learn the basics through reference documentation, concepts and examples |
+| :book: [book](https://github.com/hrkz/cycle/wiki) \| [docs](https://docs.rs/crate/cycle/0.0.2) | To get started with the library, learn the basics through the book, reference documentation and examples |

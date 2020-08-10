@@ -6,16 +6,16 @@ use std::fmt;
 use std::rc::Rc;
 
 use alg::Algebra;
-use ring::{Constant, Number, Ring, SymbolicResult};
+use ring::{Constant, Number, Set, SymbolicResult};
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]
 pub struct Symbol {
   name: String,
-  ring: Ring,
+  set: Set,
 }
 
 impl Symbol {
-  pub fn new(name_str: &str, ring: Ring) -> Rc<Symbol> {
+  pub fn new(name_str: &str, set: Set) -> Rc<Symbol> {
     let name = name_str.replace(&[' ', '+', '-', '*', '/', '^', '=', '(', ')', '{', '}', '#', '~'][..], "");
     // any non-whitespace, non-special character
     assert_eq!(name, name_str);
@@ -23,7 +23,7 @@ impl Symbol {
     Rc::new(Symbol {
       // extension to other formattings
       name,
-      ring,
+      set,
     })
   }
 }
@@ -126,7 +126,9 @@ impl Expr {
   }
 
   pub fn subs(&self, m: &Expr, s: &Expr) -> Expr {
-    if self.free(m) {
+    if self.eq(m) {
+      return s.clone();
+    } else if self.free(m) {
       return self.clone();
     }
 
@@ -213,7 +215,7 @@ impl<'e> Iterator for Iter<'e> {
             self.stack.push(&arg.1);
           }
 
-          Algebra::FieldExpr(alg::Field {
+          Algebra::AssocExpr(alg::Assoc {
             // n
             map: _,
             arg,

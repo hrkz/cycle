@@ -1,18 +1,20 @@
-pub mod num_complex;
 pub mod num_integer;
 pub mod num_rational;
+pub mod poly;
+pub mod repr;
 
 use std::fmt;
 use std::ops::{Add, Mul};
 
 pub use num_integer::*;
 pub use num_rational::Rational;
+pub use repr::*;
 
 pub type SymbolicResult<T> = Result<T, Form>;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]
 pub enum Number {
-  Z(i64),
+  Z(Integer),
   Q(Rational),
 }
 
@@ -25,12 +27,12 @@ impl Number {
     match self {
       // num(z) \in \mathbb{Z} = num(z/1) \in \mathbb{Q} = z,
       Number::Z(z) => {
-        *z //.
+        z.num() //.
       }
 
       // num(n/d) \in \mathbb{Q} = n,
       Number::Q(q) => {
-        q.num //.
+        q.num() //.
       } /*
         Number::T(_) => {
           None
@@ -42,13 +44,13 @@ impl Number {
   pub fn den(&self) -> i64 {
     match self {
       // den(z) \in \mathbb{Z} = den(z/1) \in \mathbb{Q} = 1,
-      Number::Z(_) => {
-        1 //.
+      Number::Z(z) => {
+        z.den() //.
       }
 
       // den(n/d) \in \mathbb{Q} = d,
       Number::Q(q) => {
-        q.den //.
+        q.den() //.
       } /*
         Number::T(_) => {
           1
@@ -87,18 +89,18 @@ impl Number {
   pub fn trivial(self) -> SymbolicResult<Number> {
     match self {
       Number::Q(q) => {
-        if q.den == 0 {
-          if q.num == 0 {
+        if q.den() == 0 {
+          if q.num() == 0 {
             return Err(Form::Indeterminate);
           } else {
             return Err(Form::ComplexInf);
           }
         }
 
-        let g = gcd(q.num, q.den);
+        let g = Integer::gcd(q.num(), q.den());
 
-        let num = q.num / g * q.den.signum();
-        let den = q.den / g * q.den.signum();
+        let num = q.num() / g * q.den().signum();
+        let den = q.den() / g * q.den().signum();
 
         if den != 1 {
           Ok(Number::Q(Rational::new(num, den)))
@@ -118,31 +120,56 @@ impl Number {
 impl Add for Number {
   type Output = SymbolicResult<Number>;
 
-  /// ```a/b + c/d = (a*lcm/b + c*lcm/d)/lcm where lcm = lcm(b,d)```
   fn add(self, o: Self) -> Self::Output {
-    let (ln, rn) = (self.num(), o.num());
-    let (ld, rd) = (self.den(), o.den());
+    match (self, o) {
+      (Number::Z(lhs), Number::Z(rhs)) => Number::Z(lhs + rhs),
+      (Number::Q(lhs), Number::Q(rhs)) => Number::Q(lhs + rhs),
 
-    let lcm = gcd_lcm(ld, rd).1;
-    let lhs_num = ln * lcm / ld;
-    let rhs_num = rn * lcm / rd;
-
-    Number::Q(Rational::new(lhs_num + rhs_num, lcm)).trivial()
+      (
+        //.
+        Number::Z(z),
+        Number::Q(q),
+      )
+      | (
+        //.
+        Number::Q(q),
+        Number::Z(z),
+      ) => {
+        Number::Q(
+          // ```a/b + c/1 = (a + c)/b```
+          q + Rational::from(z),
+        )
+      }
+    }
+    .trivial()
   }
 }
 
 impl Mul for Number {
   type Output = SymbolicResult<Number>;
 
-  /// ```a/b * c/d = (a/gcd_ad)*(c/gcd_bc) / ((d/gcd_ad)*(b/gcd_bc))```
   fn mul(self, o: Self) -> Self::Output {
-    let (ln, rn) = (self.num(), o.num());
-    let (ld, rd) = (self.den(), o.den());
+    match (self, o) {
+      (Number::Z(lhs), Number::Z(rhs)) => Number::Z(lhs * rhs),
+      (Number::Q(lhs), Number::Q(rhs)) => Number::Q(lhs * rhs),
 
-    let gcd_ad = gcd(ln, rd);
-    let gcd_bc = gcd(ld, rn);
-
-    Number::Q(Rational::new(ln / gcd_ad * rn / gcd_bc, rd / gcd_ad * ld / gcd_bc)).trivial()
+      (
+        //.
+        Number::Z(z),
+        Number::Q(q),
+      )
+      | (
+        //.
+        Number::Q(q),
+        Number::Z(z),
+      ) => {
+        Number::Q(
+          // ```a/b * c/1 = a*b/c
+          q * Rational::from(z),
+        )
+      }
+    }
+    .trivial()
   }
 }
 
@@ -156,26 +183,12 @@ impl fmt::Display for Number {
           f,
           "{}/{}",
           //. signs
-          q.num,
-          q.den
+          q.num(),
+          q.den()
         )
       }
     }
   }
-}
-
-#[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq)]
-pub enum Ring {
-  /// Natural
-  N,
-  /// Integer
-  Z,
-  /// Rational
-  Q,
-  /// Real
-  R,
-  /// Complex
-  C,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -190,32 +203,34 @@ pub enum Form {
 
 #[derive(Debug, Clone, PartialEq)]
 /// Special constants
-#[allow(non_camel_case_types)]
 pub enum Constant {
   /// Infinity
-  oo,
-  /// Imaginary number
-  im,
+  Inf,
 
   /// Pi, Archimede's constant
-  pi,
+  Pi,
+  /// Imaginary number
+  I,
   /// Euler's number
-  e,
+  E,
 }
 
 impl fmt::Display for Constant {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match self {
       // special values
-      Constant::oo => write!(f, "∞"),
-      Constant::im => write!(f, "i"),
+      Constant::Inf => write!(f, "∞"),
 
       // constants
-      Constant::pi => {
+      Constant::Pi => {
         //.
         write!(f, "π")
       }
-      Constant::e => {
+      Constant::I => {
+        //.
+        write!(f, "i")
+      }
+      Constant::E => {
         //.
         write!(f, "e")
       }

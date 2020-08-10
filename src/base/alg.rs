@@ -15,14 +15,14 @@ pub enum BOp {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum FOp {
+pub enum AOp {
   Add,
   Mul,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Field {
-  pub map: FOp,
+pub struct Assoc {
+  pub map: AOp,
   pub arg: Vec<Expr>,
 }
 
@@ -38,9 +38,9 @@ pub enum Algebra {
     arg: (Box<Expr>, Box<Expr>),
   },
 
-  FieldExpr(
+  AssocExpr(
     //.
-    Field,
+    Assoc,
   ),
 }
 
@@ -70,15 +70,15 @@ impl Algebra {
         }
       }
 
-      Algebra::FieldExpr(Field {
+      Algebra::AssocExpr(Assoc {
         //.
         map,
         arg: _,
       }) => {
         match map {
           //.
-          FOp::Add => 1,
-          FOp::Mul => 2,
+          AOp::Add => 1,
+          AOp::Mul => 2,
         }
       }
     }
@@ -89,7 +89,7 @@ impl Algebra {
       Algebra::UExpr { map: _, arg } => arg.len(),
       Algebra::BExpr { map: _, arg } => arg.0.len() + arg.1.len(),
 
-      Algebra::FieldExpr(Field {
+      Algebra::AssocExpr(Assoc {
         //.
         map: _,
         arg,
@@ -109,7 +109,7 @@ impl Algebra {
       Algebra::UExpr { map: _, arg } => arg.free(o),
       Algebra::BExpr { map: _, arg } => arg.0.free(o) && arg.1.free(o),
 
-      Algebra::FieldExpr(Field {
+      Algebra::AssocExpr(Assoc {
         //.
         map: _,
         arg,
@@ -141,11 +141,11 @@ impl Algebra {
         arg: (Box::new(arg.0.subs(m, s)), Box::new(arg.1.subs(m, s))),
       }),
 
-      Algebra::FieldExpr(Field {
+      Algebra::AssocExpr(Assoc {
         //.
         map,
         arg,
-      }) => Expr::Alg(Algebra::FieldExpr(Field {
+      }) => Expr::Alg(Algebra::AssocExpr(Assoc {
         map: *map,
         arg: arg.iter().map(|x| x.subs(m, s)).collect(),
       })),
@@ -190,7 +190,7 @@ impl fmt::Display for Algebra {
         }
       }
 
-      Algebra::FieldExpr(Field {
+      Algebra::AssocExpr(Assoc {
         //.
         map,
         arg,
@@ -202,7 +202,7 @@ impl fmt::Display for Algebra {
 
           for e in iter {
             match map {
-              FOp::Add => {
+              AOp::Add => {
                 write!(
                   //.
                   f,
@@ -211,7 +211,7 @@ impl fmt::Display for Algebra {
                 )?;
               }
 
-              FOp::Mul => {
+              AOp::Mul => {
                 write!(
                   //.
                   f,
@@ -231,15 +231,15 @@ impl fmt::Display for Algebra {
 
 impl Expr {
   /// ```a!```
-  pub fn r#fac(self) -> Expr { Expr::Alg(Algebra::UExpr { map: UOp::Fact, arg: Box::new(self) }) }
+  pub fn r#fac(self) -> Self { Self::Alg(Algebra::UExpr { map: UOp::Fact, arg: Box::new(self) }) }
 
   /// ```a^b```
   pub fn r#pow(
     //.
     self,
-    o: Expr,
-  ) -> Expr {
-    Expr::Alg(Algebra::BExpr {
+    o: Self,
+  ) -> Self {
+    Self::Alg(Algebra::BExpr {
       map: BOp::Pow,
       arg: (Box::new(self), Box::new(o)),
     })
@@ -249,19 +249,19 @@ impl Expr {
 impl Add for Expr {
   type Output = Self;
   /// ```a + b```
-  fn add(self, o: Self) -> Self { Self::Alg(Algebra::FieldExpr(Field { map: FOp::Add, arg: vec![self, o] })) }
+  fn add(self, o: Self) -> Self { Self::Alg(Algebra::AssocExpr(Assoc { map: AOp::Add, arg: vec![self, o] })) }
 }
 
 impl Mul for Expr {
   type Output = Self;
   /// ```a*b```
-  fn mul(self, o: Self) -> Self { Self::Alg(Algebra::FieldExpr(Field { map: FOp::Mul, arg: vec![self, o] })) }
+  fn mul(self, o: Self) -> Self { Self::Alg(Algebra::AssocExpr(Assoc { map: AOp::Mul, arg: vec![self, o] })) }
 }
 
 impl Neg for Expr {
   type Output = Self;
   /// ```-a = (-1)*a```
-  fn neg(self) -> Self { Expr::Num(Number::NEG_ONE).mul(self) }
+  fn neg(self) -> Self { Self::Num(Number::NEG_ONE).mul(self) }
 }
 
 impl Sub for Expr {
@@ -273,5 +273,5 @@ impl Sub for Expr {
 impl Div for Expr {
   type Output = Self;
   /// ```a/b = a * b^-1```
-  fn div(self, o: Self) -> Self { self.mul(o.pow(Expr::Num(Number::NEG_ONE))) }
+  fn div(self, o: Self) -> Self { self.mul(o.pow(Self::Num(Number::NEG_ONE))) }
 }

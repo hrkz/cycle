@@ -17,7 +17,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! cycle = "0.0.2"
+//! cycle = "0.0.3"
 //! ```
 //!
 //! ## Wiki
@@ -30,5 +30,5 @@
 pub mod base;
 
 #[doc(inline)]
-pub use crate::base::ring::{self, Constant, Integer, Number, Rational, Ring};
+pub use crate::base::ring::{self, Constant, Integer, Number, Rational, Set};
 pub use crate::base::{Expr, Symbol};

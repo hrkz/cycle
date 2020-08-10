@@ -1,15 +1,18 @@
-//use crate::base::ring::num_integer;
+use crate::base::ring::num_integer::Integer;
+use crate::base::ring::repr::*;
 
 use std::cmp::Ordering;
+use std::ops::{Add, Div, Mul, Neg, Sub};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Rational {
-  pub num: i64,
-  pub den: i64,
+  num: Integer,
+  den: Integer,
 }
 
 impl Rational {
-  pub fn new(num: i64, den: i64) -> Rational {
+  #[inline]
+  pub const fn new(num: Integer, den: Integer) -> Rational {
     Rational {
       // Q
       num,
@@ -38,6 +41,40 @@ impl Rational {
   pub fn is_positive(&self) -> bool { (self.num > 0 && self.den > 0) || (self.num < 0 && self.den < 0) }
   pub fn is_negative(&self) -> bool { (self.num < 0 && self.den > 0) || (self.num > 0 && self.den < 0) }
 }
+
+impl Domain for Rational {
+  fn name(self) -> String { "QQ".to_string() }
+
+  fn num(self) -> i64 { self.num }
+  fn den(self) -> i64 { self.den }
+
+  /// ```gcd(a/b, c/d) = gcd(a*d, c*b)/(b*d)```
+  fn gcd(u: Self, v: Self) -> Self {
+    let (a, c) = (u.num, v.num);
+    let (b, d) = (u.den, v.den);
+
+    Self::new(
+      //.
+      Integer::gcd(a * d, c * b),
+      b * d,
+    )
+  }
+
+  /// ```lcm(a/b, c/d) = lcm(a, c)/gcd(b, d)```
+  fn lcm(u: Self, v: Self) -> Self {
+    let (a, c) = (u.num, v.num);
+    let (b, d) = (u.den, v.den);
+
+    Self::new(
+      //.
+      Integer::lcm(a, c),
+      Integer::gcd(b, d),
+    )
+  }
+}
+
+impl Ring for Rational {}
+impl Field for Rational {}
 
 impl PartialEq for Rational {
   fn eq(&self, other: &Rational) -> bool { self.cmp(other) == Ordering::Equal }
@@ -81,6 +118,84 @@ impl Ord for Rational {
   }
 }
 
-impl From<i64> for Rational {
-  fn from(n: i64) -> Self { Rational { num: n, den: 1 } }
+impl From<Integer> for Rational {
+  fn from(n: Integer) -> Self { Rational { num: n, den: 1 } }
+}
+
+impl Add for Rational {
+  type Output = Rational;
+
+  /// ```a/b + c/d = (a*lcm/b + c*lcm/d)/lcm where lcm = lcm(b,d)```
+  fn add(self, o: Self) -> Self::Output {
+    let (a, c) = (self.num, o.num);
+    let (b, d) = (self.den, o.den);
+
+    let lcm = Integer::lcm(b, d);
+    Rational::new(
+      //.
+      a * lcm / b + c * lcm / d,
+      lcm,
+    )
+  }
+}
+
+impl Sub for Rational {
+  type Output = Rational;
+
+  /// ```a/b - c/d = (lcm/b*a - lcm/d*c)/lcm, where lcm = lcm(b,d)```
+  fn sub(self, o: Self) -> Self::Output {
+    let (a, c) = (self.num, o.num);
+    let (b, d) = (self.den, o.den);
+
+    let lcm = Integer::lcm(b, d);
+    Rational::new(
+      //.
+      lcm / b * a - lcm / d * c,
+      lcm,
+    )
+  }
+}
+
+impl Mul for Rational {
+  type Output = Rational;
+
+  /// ```a/b * c/d = (a/gcd_ad)*(c/gcd_bc) / ((d/gcd_ad)*(b/gcd_bc))```
+  fn mul(self, o: Self) -> Self::Output {
+    let (a, c) = (self.num, o.num);
+    let (b, d) = (self.den, o.den);
+
+    let gcd_ad = Integer::gcd(a, d);
+    let gcd_bc = Integer::gcd(b, c);
+
+    Rational::new(
+      //.
+      a / gcd_ad * c / gcd_bc,
+      d / gcd_ad * b / gcd_bc,
+    )
+  }
+}
+
+impl Div for Rational {
+  type Output = Rational;
+
+  /// ```a/b / c/d = (a/gcd_ac)*(d/gcd_bd) / ((c/gcd_ac)*(b/gcd_bd))```
+  fn div(self, o: Self) -> Self::Output {
+    let (a, c) = (self.num, o.num);
+    let (b, d) = (self.den, o.den);
+
+    let gcd_ac = Integer::gcd(a, c);
+    let gcd_bd = Integer::gcd(b, d);
+
+    Rational::new(
+      //.
+      a / gcd_ac * d / gcd_bd,
+      c / gcd_ac * b / gcd_bd,
+    )
+  }
+}
+
+impl Neg for Rational {
+  type Output = Rational;
+
+  fn neg(self) -> Rational { Rational::new(-self.num, self.den) }
 }

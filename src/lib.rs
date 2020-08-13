@@ -1,5 +1,3 @@
-#![feature(non_ascii_idents)]
-
 //! Cycle - Mathematical modeling using symbolic trees
 //!
 //! Cycle is a symbolic mathematics and modeling library based on expression trees that
@@ -17,7 +15,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! cycle = "0.0.3"
+//! cycle = "0.0.4"
 //! ```
 //!
 //! ## Wiki
@@ -28,6 +26,9 @@
 
 #[doc(hidden)]
 pub mod base;
+
+#[cfg(feature = "cycle_lang")]
+pub mod lang;
 
 #[doc(inline)]
 pub use crate::base::ring::{self, Constant, Integer, Number, Rational, Set};

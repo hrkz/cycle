@@ -2,7 +2,6 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 
 pub trait Domain
   : Clone
-  + Copy
   //. ops
   + Add<Output = Self>
   + Sub<Output = Self>
@@ -10,18 +9,18 @@ pub trait Domain
   + Div<Output = Self>
   + Neg
 {
-  fn name(self) -> String;
+  fn name(&self) -> String;
 
-  fn num(self) -> i64;
-  fn den(self) -> i64;
+  fn num(&self) -> i128;
+  fn den(&self) -> i128;
 
-  fn gcd(u: Self, u: Self) -> Self;
-  fn lcm(v: Self, v: Self) -> Self;
+  fn gcd(u: &Self, u: &Self) -> Self;
+  fn lcm(v: &Self, v: &Self) -> Self;
 
-  fn cofactors(self, u: Self, v: Self) -> (Self, Self, Self) {
+  fn cofactors(&self, u: &Self, v: &Self) -> (Self, Self, Self) {
     let gcd = Self::gcd(u, v);
-    let cfa = u / gcd;
-    let cfb = v / gcd;
+    let cfa = u.clone() / gcd.clone();
+    let cfb = v.clone() / gcd.clone();
     (gcd, cfa, cfb)
   }
 }

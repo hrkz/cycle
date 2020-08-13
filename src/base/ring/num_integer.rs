@@ -1,7 +1,7 @@
 use crate::base::ring::repr::*;
 
 /// Basic smallest domain, Z
-pub type Integer = i64;
+pub type Integer = i128;
 
 trait Arithmetic {
   fn is_multiple_of(&self) -> bool;
@@ -14,12 +14,12 @@ trait Arithmetic {
 }
 
 impl Domain for Integer {
-  fn name(self) -> String { "ZZ".to_string() }
+  fn name(&self) -> String { String::from("ℤ") }
 
-  fn num(self) -> i64 { self }
-  fn den(self) -> i64 { 1 }
+  fn num(&self) -> i128 { *self }
+  fn den(&self) -> i128 { 1 }
 
-  fn gcd(u: Self, v: Self) -> Self {
+  fn gcd(u: &Self, v: &Self) -> Self {
     let u = u.abs();
     let v = v.abs();
 
@@ -50,11 +50,11 @@ impl Domain for Integer {
     }
   }
 
-  fn lcm(u: Self, v: Self) -> Self {
-    if u == 0 &&
+  fn lcm(u: &Self, v: &Self) -> Self {
+    if u == &0 &&
       // 0 gcd and 
       // indeterminate lcm
-       v == 0
+       v == &0
     {
       return 0;
     }

@@ -43,32 +43,34 @@ impl Rational {
 }
 
 impl Domain for Rational {
-  fn name(self) -> String { "QQ".to_string() }
+  fn name(&self) -> String { String::from("ℚ") }
 
-  fn num(self) -> i64 { self.num }
-  fn den(self) -> i64 { self.den }
+  fn num(&self) -> i128 { self.num }
+  fn den(&self) -> i128 { self.den }
 
   /// ```gcd(a/b, c/d) = gcd(a*d, c*b)/(b*d)```
-  fn gcd(u: Self, v: Self) -> Self {
+  fn gcd(u: &Self, v: &Self) -> Self {
     let (a, c) = (u.num, v.num);
     let (b, d) = (u.den, v.den);
+    let ad = a * d;
+    let cb = c * b;
 
     Self::new(
       //.
-      Integer::gcd(a * d, c * b),
+      Integer::gcd(&ad, &cb),
       b * d,
     )
   }
 
   /// ```lcm(a/b, c/d) = lcm(a, c)/gcd(b, d)```
-  fn lcm(u: Self, v: Self) -> Self {
+  fn lcm(u: &Self, v: &Self) -> Self {
     let (a, c) = (u.num, v.num);
     let (b, d) = (u.den, v.den);
 
     Self::new(
       //.
-      Integer::lcm(a, c),
-      Integer::gcd(b, d),
+      Integer::lcm(&a, &c),
+      Integer::gcd(&b, &d),
     )
   }
 }
@@ -130,7 +132,7 @@ impl Add for Rational {
     let (a, c) = (self.num, o.num);
     let (b, d) = (self.den, o.den);
 
-    let lcm = Integer::lcm(b, d);
+    let lcm = Integer::lcm(&b, &d);
     Rational::new(
       //.
       a * lcm / b + c * lcm / d,
@@ -147,7 +149,7 @@ impl Sub for Rational {
     let (a, c) = (self.num, o.num);
     let (b, d) = (self.den, o.den);
 
-    let lcm = Integer::lcm(b, d);
+    let lcm = Integer::lcm(&b, &d);
     Rational::new(
       //.
       lcm / b * a - lcm / d * c,
@@ -164,8 +166,8 @@ impl Mul for Rational {
     let (a, c) = (self.num, o.num);
     let (b, d) = (self.den, o.den);
 
-    let gcd_ad = Integer::gcd(a, d);
-    let gcd_bc = Integer::gcd(b, c);
+    let gcd_ad = Integer::gcd(&a, &d);
+    let gcd_bc = Integer::gcd(&b, &c);
 
     Rational::new(
       //.
@@ -183,8 +185,8 @@ impl Div for Rational {
     let (a, c) = (self.num, o.num);
     let (b, d) = (self.den, o.den);
 
-    let gcd_ac = Integer::gcd(a, c);
-    let gcd_bd = Integer::gcd(b, d);
+    let gcd_ac = Integer::gcd(&a, &c);
+    let gcd_bd = Integer::gcd(&b, &d);
 
     Rational::new(
       //.

@@ -23,7 +23,7 @@ impl Number {
   pub const ONE: Number = Number::Z(1);
   pub const NEG_ONE: Number = Number::Z(-1);
 
-  pub fn num(&self) -> i64 {
+  pub fn num(&self) -> i128 {
     match self {
       // num(z) \in \mathbb{Z} = num(z/1) \in \mathbb{Q} = z,
       Number::Z(z) => {
@@ -33,15 +33,11 @@ impl Number {
       // num(n/d) \in \mathbb{Q} = n,
       Number::Q(q) => {
         q.num() //.
-      } /*
-        Number::T(_) => {
-          None
-        }
-        */
+      }
     }
   }
 
-  pub fn den(&self) -> i64 {
+  pub fn den(&self) -> i128 {
     match self {
       // den(z) \in \mathbb{Z} = den(z/1) \in \mathbb{Q} = 1,
       Number::Z(z) => {
@@ -51,11 +47,7 @@ impl Number {
       // den(n/d) \in \mathbb{Q} = d,
       Number::Q(q) => {
         q.den() //.
-      } /*
-        Number::T(_) => {
-          1
-        }
-        */
+      }
     }
   }
 
@@ -64,7 +56,7 @@ impl Number {
 
   pub fn inv(self) -> SymbolicResult<Number> { Number::Q(Rational::new(self.den(), self.num())).trivial() }
 
-  pub fn pow(self, n: i64) -> SymbolicResult<Number> {
+  pub fn pow(self, n: i128) -> SymbolicResult<Number> {
     if self.num() != 0 {
       if n > 0 {
         // l^n = 1^(n - 1)*l
@@ -97,7 +89,7 @@ impl Number {
           }
         }
 
-        let g = Integer::gcd(q.num(), q.den());
+        let g = Integer::gcd(&q.num(), &q.den());
 
         let num = q.num() / g * q.den().signum();
         let den = q.den() / g * q.den().signum();

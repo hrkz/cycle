@@ -1,3 +1,4 @@
+//!
 //! Cycle - Mathematical modeling using symbolic trees
 //!
 //! Cycle is a symbolic mathematics and modeling library based on expression trees that
@@ -15,7 +16,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! cycle = "0.0.4"
+//! cycle = "0.1.0"
 //! ```
 //!
 //! ## Wiki

@@ -3,24 +3,24 @@ pub mod ring;
 
 use std::cmp::Ordering;
 use std::fmt;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use alg::Algebra;
 use ring::{Constant, Number, Set, SymbolicResult};
 
-#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]
+#[derive(Debug, Clone, Hash, PartialEq, PartialOrd, Eq, Ord)]
 pub struct Symbol {
   name: String,
   set: Set,
 }
 
 impl Symbol {
-  pub fn new(name_str: &str, set: Set) -> Rc<Symbol> {
+  pub fn new(name_str: &str, set: Set) -> Arc<Symbol> {
     let name = name_str.replace(&[' ', '+', '-', '*', '/', '^', '=', '(', ')', '{', '}', '#', '~'][..], "");
     // any non-whitespace, non-special character
     assert_eq!(name, name_str);
 
-    Rc::new(Symbol {
+    Arc::new(Symbol {
       // extension to other formattings
       name,
       set,
@@ -52,12 +52,12 @@ match_term {
   }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Hash, PartialEq)]
 pub enum Expr {
   /// Symbol (variable) on a ring
-  Sym(Rc<Symbol>),
+  Sym(Arc<Symbol>),
   /// Special constant
-  Cte(Rc<Constant>),
+  Cte(Arc<Constant>),
 
   /// Exact number
   Num(Number),

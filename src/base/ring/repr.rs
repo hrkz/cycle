@@ -39,7 +39,7 @@ pub trait Field
 {
 }
 
-#[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, PartialOrd, Eq, Ord)]
 pub enum Set {
   /// Natural
   N,

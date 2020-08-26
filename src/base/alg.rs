@@ -3,30 +3,30 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 
 use crate::{Expr, Number};
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Hash, PartialEq, Copy)]
 pub enum UOp {
   Elem,
   Fact,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Hash, PartialEq, Copy)]
 pub enum BOp {
   Pow,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Hash, PartialEq, Copy)]
 pub enum AOp {
   Add,
   Mul,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Hash, PartialEq)]
 pub struct Assoc {
   pub map: AOp,
   pub arg: Vec<Expr>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Hash, PartialEq)]
 pub enum Algebra {
   UExpr {
     map: UOp,
@@ -54,7 +54,7 @@ impl Algebra {
       } => {
         match map {
           //.
-          UOp::Elem => 1,
+          UOp::Elem => 2,
           UOp::Fact => 4,
         }
       }
@@ -231,7 +231,7 @@ impl fmt::Display for Algebra {
 
 impl Expr {
   /// ```a!```
-  pub fn r#fac(self) -> Self { Self::Alg(Algebra::UExpr { map: UOp::Fact, arg: Box::new(self) }) }
+  pub fn r#fact(self) -> Self { Self::Alg(Algebra::UExpr { map: UOp::Fact, arg: Box::new(self) }) }
 
   /// ```a^b```
   pub fn r#pow(

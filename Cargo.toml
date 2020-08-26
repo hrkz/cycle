@@ -1,6 +1,6 @@
 [package]
 name = "cycle"
-version = "0.0.4"
+version = "0.1.0"
 description = "Mathematical modeling using symbolic trees"
 authors = ["hrkz <hugo.frezat@gmail.com>"]
 

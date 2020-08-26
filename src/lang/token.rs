@@ -1,12 +1,10 @@
-use crate::lang::*;
-
-use std::ops::Range;
+use crate::lang::{LangError, Span};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TokenKind<'a> {
   Symbol(&'a str),
   Number(u64),
-  //. arithmetic
+  // arithmetic
   Eq,
   Add,
   Sub,
@@ -14,23 +12,30 @@ pub enum TokenKind<'a> {
   Div,
   Pow,
   Fact,
-  //. reserved
+  // reserved
   LPar,
   RPar,
-  //. lang
+  LSqr,
+  RSqr,
+  // lang
+  Keyword(TokenKeyword),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum TokenKeyword {
   Diff,
   Int,
   Sum,
   Prod,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Token<'a> {
-  span: Range<usize>,
-  kind: TokenKind<'a>,
+  pub span: Span,
+  pub kind: TokenKind<'a>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Lexer<'a> {
   src: &'a str,
   cur: usize,
@@ -39,7 +44,7 @@ pub struct Lexer<'a> {
 impl<'a> Lexer<'a> {
   pub fn new(src: &'a str) -> Lexer {
     Lexer {
-      //. block
+      // block
       src,
       cur: 0,
     }
@@ -57,7 +62,7 @@ impl<'a> Lexer<'a> {
     //.
     &mut self,
     mut predicate: P,
-  ) -> Result<(&'a str, Range<usize>), ParseError>
+  ) -> Result<(&'a str, Span), LangError>
   where
     P: FnMut(char) -> bool,
   {
@@ -66,7 +71,7 @@ impl<'a> Lexer<'a> {
     self
       .src
       .chars()
-      //. iter
+      // iter
       .skip(self.cur)
       .take_while(|&c| predicate(c))
       .for_each(|c| {
@@ -78,16 +83,16 @@ impl<'a> Lexer<'a> {
     if start != end {
       Ok((&self.src[start..end], start..end))
     } else {
-      Err(ParseError::Lexical)
+      Err(LangError::Lex)
     }
   }
 
-  fn tok(&mut self, kind: TokenKind<'a>) -> Result<Token<'a>, ParseError> {
+  fn tok(&mut self, kind: TokenKind<'a>) -> Result<Token<'a>, LangError> {
     let start = self.cur;
     self
       .advance()
       //.
-      .ok_or(ParseError::Lexical)?;
+      .ok_or(LangError::Lex)?;
     let end = self.cur;
 
     Ok(Token {
@@ -97,12 +102,12 @@ impl<'a> Lexer<'a> {
     })
   }
 
-  fn number(&mut self) -> Result<Token<'a>, ParseError> {
+  fn number(&mut self) -> Result<Token<'a>, LangError> {
     let (text, span) = self.advance_while(|c| c.is_ascii_digit())?;
 
     let num = text
       .parse::<u64>() // \in \mathbb{N}
-      .map_err(|err| ParseError::Number { err, span: span.clone() })?;
+      .map_err(|err| LangError::Integer { err, span: span.clone() })?;
 
     Ok(Token {
       span,
@@ -113,14 +118,14 @@ impl<'a> Lexer<'a> {
     })
   }
 
-  fn symbol(&mut self) -> Result<Token<'a>, ParseError> {
+  fn symbol(&mut self) -> Result<Token<'a>, LangError> {
     let (text, span) = self.advance_while(|c| c.is_alphabetic() || c.is_ascii_digit() || c == '_')?;
 
     let kind = match text {
-      "Diff" => TokenKind::Diff,
-      "Int" => TokenKind::Int,
-      "Sum" => TokenKind::Sum,
-      "Prod" => TokenKind::Prod,
+      "Diff" => TokenKind::Keyword(TokenKeyword::Diff),
+      "Int" => TokenKind::Keyword(TokenKeyword::Int),
+      "Sum" => TokenKind::Keyword(TokenKeyword::Sum),
+      "Prod" => TokenKind::Keyword(TokenKeyword::Prod),
       _ => {
         //.
         TokenKind::Symbol(text)
@@ -136,7 +141,7 @@ impl<'a> Lexer<'a> {
 }
 
 impl<'a> Iterator for Lexer<'a> {
-  type Item = Result<Token<'a>, ParseError>;
+  type Item = Result<Token<'a>, LangError>;
 
   fn next(&mut self) -> Option<Self::Item> {
     loop {
@@ -151,6 +156,8 @@ impl<'a> Iterator for Lexer<'a> {
 
         '(' => Some(self.tok(TokenKind::LPar)),
         ')' => Some(self.tok(TokenKind::RPar)),
+        '[' => Some(self.tok(TokenKind::LSqr)),
+        ']' => Some(self.tok(TokenKind::RSqr)),
 
         '0'..='9' => {
           Some(self.number()) //.

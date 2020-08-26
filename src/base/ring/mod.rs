@@ -12,7 +12,7 @@ pub use repr::*;
 
 pub type SymbolicResult<T> = Result<T, Form>;
 
-#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]
+#[derive(Debug, Clone, Hash, PartialEq, PartialOrd, Eq, Ord)]
 pub enum Number {
   Z(Integer),
   Q(Rational),
@@ -25,12 +25,12 @@ impl Number {
 
   pub fn num(&self) -> i128 {
     match self {
-      // num(z) \in \mathbb{Z} = num(z/1) \in \mathbb{Q} = z,
+      // ```num(z) \in \mathbb{Z} = num(z/1) \in \mathbb{Q} = z,```
       Number::Z(z) => {
         z.num() //.
       }
 
-      // num(n/d) \in \mathbb{Q} = n,
+      // ```num(n/d) \in \mathbb{Q} = n,```
       Number::Q(q) => {
         q.num() //.
       }
@@ -39,12 +39,12 @@ impl Number {
 
   pub fn den(&self) -> i128 {
     match self {
-      // den(z) \in \mathbb{Z} = den(z/1) \in \mathbb{Q} = 1,
+      // ```den(z) \in \mathbb{Z} = den(z/1) \in \mathbb{Q} = 1,```
       Number::Z(z) => {
         z.den() //.
       }
 
-      // den(n/d) \in \mathbb{Q} = d,
+      // ```den(n/d) \in \mathbb{Q} = d,```
       Number::Q(q) => {
         q.den() //.
       }
@@ -59,10 +59,10 @@ impl Number {
   pub fn pow(self, n: i128) -> SymbolicResult<Number> {
     if self.num() != 0 {
       if n > 0 {
-        // l^n = 1^(n - 1)*l
+        // ```l^n = 1^(n - 1)*l```
         self.clone().pow(n - 1)?.mul(self)
       } else if n < 0 {
-        // l^-n = (1/l)^n
+        // ```l^-n = (1/l)^n```
         self.inv()?.pow(-n)
       } else {
         Ok(Number::Z(1))
@@ -156,7 +156,7 @@ impl Mul for Number {
         Number::Z(z),
       ) => {
         Number::Q(
-          // ```a/b * c/1 = a*b/c
+          // ```a/b * c/1 = a*b/c```
           q * Rational::from(z),
         )
       }
@@ -174,7 +174,7 @@ impl fmt::Display for Number {
         write!(
           f,
           "{}/{}",
-          //. signs
+          // signs
           q.num(),
           q.den()
         )
@@ -183,7 +183,7 @@ impl fmt::Display for Number {
   }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Hash, PartialEq)]
 pub enum Form {
   /// Infinity on complex manifold i.e. Riemann sphere
   ComplexInf,
@@ -193,38 +193,52 @@ pub enum Form {
   //.
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Hash, PartialEq)]
 /// Special constants
 pub enum Constant {
   /// Infinity
-  Inf,
+  Infinity,
 
   /// Pi, Archimede's constant
   Pi,
+  /// Euler's number
+  Euler,
+  /// Golden ratio
+  Golden,
+  /// Catalan's constant
+  Catalan,
+  /// Conway's constant
+  Conway,
+
   /// Imaginary number
   I,
-  /// Euler's number
-  E,
 }
 
 impl fmt::Display for Constant {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match self {
       // special values
-      Constant::Inf => write!(f, "∞"),
+      Constant::Infinity => write!(f, "∞"),
 
       // constants
       Constant::Pi => {
-        //.
-        write!(f, "π")
+        write!(f, "[π]") //.
       }
+      Constant::Euler => {
+        write!(f, "[e]") //.
+      }
+      Constant::Golden => {
+        write!(f, "[φ]") //.
+      }
+      Constant::Catalan => {
+        write!(f, "[G]") //.
+      }
+      Constant::Conway => {
+        write!(f, "[λ]") //.
+      }
+
       Constant::I => {
-        //.
-        write!(f, "i")
-      }
-      Constant::E => {
-        //.
-        write!(f, "e")
+        write!(f, "[I]") //.
       }
     }
   }

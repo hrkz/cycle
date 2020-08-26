@@ -4,7 +4,7 @@ use crate::base::ring::repr::*;
 use std::cmp::Ordering;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Hash, Copy)]
 pub struct Rational {
   num: Integer,
   den: Integer,
@@ -90,7 +90,7 @@ impl PartialOrd for Rational {
 impl Ord for Rational {
   fn cmp(
     &self,
-    other: &Rational, //. finite recursive quo/rem cmp
+    other: &Rational, // finite recursive quo/rem cmp
   ) -> Ordering {
     let (lhs_int, rhs_int) = (self.num / self.den, other.num / other.den);
     let (lhs_rem, rhs_rem) = (self.num % self.den, other.num % other.den);
@@ -110,7 +110,7 @@ impl Ord for Rational {
           Ordering::Greater //.
         }
         (true, true) => {
-          // a/(a % b) < c/(c % d)
+          // ```a/(a % b) < c/(c % d)```
           let lhs_recip = Rational::new(self.den, lhs_rem);
           let rhs_recip = Rational::new(other.den, rhs_rem);
           lhs_recip.cmp(&rhs_recip).reverse()

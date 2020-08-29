@@ -22,7 +22,7 @@ use std::iter::Peekable;
 ///  | <Primary>
 ///
 /// <Root> ::=
-///    <Expr> "=" <Expr>
+///    <Expr> `ast` <Expr>
 ///  | <Expr>
 /// ```
 ///
@@ -101,8 +101,8 @@ impl<'a> Parser<'a> {
         self.parenthesis()
       }
 
-      Some(op) => {
-        if let Some(expr) = Primary::dispatch(op) {
+      Some(token) => {
+        if let Some(expr) = Primary::dispatch(token) {
           self.advance()?;
           match expr {
             Primary::Neg | Primary::Pos => Ok(expr.eval(self.expr(expr.pred())?)),
@@ -134,7 +134,7 @@ impl<'a> Parser<'a> {
   fn expr(&mut self, binding: u32) -> Result<Expr, LangError> {
     let mut lhs = self.primary()?;
 
-    while let Some(op) = self.peek() {
+    while let Some(token) = self.peek() {
       //
       // <Expr> ::=
       //    <Primary> "+" <Expr>
@@ -146,7 +146,30 @@ impl<'a> Parser<'a> {
       //  | <Primary>
       //
 
-      match Op::dispatch(op) {
+      if let
+        //.
+        TokenKind::Number(_)
+        | TokenKind::Symbol(_)
+        | TokenKind::LPar
+        | TokenKind::LSqr
+        | TokenKind::Keyword(_) = token
+      {
+        let token = self.advance()?;
+
+        //
+        // hints
+        //
+        // <Expr> \in [TokenKind::Add, TokenKind::Sub, TokenKind::Mul, TokenKind::Div, TokenKind::Pow, TokenKind::Fact]
+        // <Expr>
+        //
+
+        return Err(LangError::Expected {
+          expr: "`+, -, *, /, ^, !`, found primary expression",
+          span: token.span,
+        });
+      }
+
+      match Op::dispatch(token) {
         None => {
           break;
         }
@@ -254,7 +277,7 @@ impl Primary {
       }
 
       _ => {
-        // <Primary>
+        // <Expr>
         None
       }
     }

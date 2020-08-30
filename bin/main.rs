@@ -4,7 +4,7 @@
  Copyright (c) 2020-present, Hugo (hrkz) Frezat
 */
 
-/// @see wiki
+/// @see book
 /// http://cycle-research.org
 use cycle::*;
 

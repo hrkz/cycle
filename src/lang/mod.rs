@@ -1,5 +1,5 @@
-pub mod parse;
-pub mod token;
+mod parse;
+mod token;
 
 pub use parse::Parser;
 pub use token::{Lexer, Token, TokenKeyword, TokenKind};
@@ -19,7 +19,7 @@ pub enum Ast {
   //
   // Extension
   // (Load)
-  // (Rule)
+  // (Mod)
   //
 }
 
@@ -50,6 +50,12 @@ impl Interpreter {
       }
 
       Ast::Assign(lhs, rhs) => {
+        if !lhs.iter().any(|expr| matches!(expr, Expr::Sym(_))) {
+          return Err(LangError::Rule {
+            rule: "can not assign to constant expression",
+          });
+        }
+
         if rhs.free(&lhs) {
           let rhs = self.resolve(&rhs);
           self.symbols.insert(
@@ -90,6 +96,11 @@ pub enum LangError {
   End,
   /// Recursive error
   Rec,
+  /// Rule error
+  Rule {
+    //.
+    rule: &'static str,
+  },
 
   /// Parsing integer error
   Integer { err: ParseIntError, span: Span },
@@ -105,9 +116,11 @@ pub enum LangError {
 impl fmt::Display for LangError {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match self {
-      LangError::Lex => write!(f, "failed to parse into tokens"),
+      LangError::Lex => write!(f, "invalid syntax"),
       LangError::End => write!(f, "unexpected end of statement"),
       LangError::Rec => write!(f, "recursive assignment detected"),
+
+      LangError::Rule { rule } => write!(f, "rule inconsistency ({})", rule),
 
       LangError::Integer {
         //.

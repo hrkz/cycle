@@ -51,4 +51,6 @@ pub enum Set {
   R,
   /// Complex
   C,
+  /// Symbolic
+  SR,
 }

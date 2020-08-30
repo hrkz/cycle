@@ -1,7 +1,7 @@
 use std::fmt;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
-use crate::{Expr, Number};
+use crate::{Expr, Number, Set};
 
 #[derive(Debug, Clone, Hash, PartialEq, Copy)]
 pub enum UOp {
@@ -100,6 +100,23 @@ impl Algebra {
             |e| e.len(), //.
           )
           .sum()
+      }
+    }
+  }
+
+  pub fn dom(&self) -> Set {
+    match self {
+      Algebra::UExpr { map: _, arg } => arg.dom(),
+      Algebra::BExpr { map: _, arg } => std::cmp::max(arg.0.dom(), arg.1.dom()),
+
+      Algebra::AssocExpr(Assoc {
+        //.
+        map: _,
+        arg,
+      }) => {
+        arg.iter().map(|e| e.dom()).max().unwrap_or(
+          Set::SR, // symbolic
+        )
       }
     }
   }

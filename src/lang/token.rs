@@ -172,7 +172,7 @@ impl<'a> Iterator for Lexer<'a> {
             self.advance();
             continue;
           } else {
-            None
+            Some(Err(LangError::Lex))
           }
         }
       };

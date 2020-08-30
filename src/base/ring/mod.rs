@@ -1,7 +1,7 @@
-pub mod num_integer;
-pub mod num_rational;
-pub mod poly;
-pub mod repr;
+mod num_integer;
+mod num_rational;
+mod poly;
+mod repr;
 
 use std::fmt;
 use std::ops::{Add, Mul};
@@ -51,8 +51,20 @@ impl Number {
     }
   }
 
-  pub fn len(&self) -> u64 { 1 + (self.den() > 1) as u64 }
   pub fn ord(&self) -> u64 { self.len() }
+  pub fn len(&self) -> u64 { 1 + (self.den() != 1) as u64 }
+
+  pub fn dom(&self) -> Set {
+    if self.den() != 1 {
+      Set::Q
+    } else {
+      if self.num() < 0 {
+        Set::Z
+      } else {
+        Set::N
+      }
+    }
+  }
 
   pub fn inv(self) -> SymbolicResult<Number> { Number::Q(Rational::new(self.den(), self.num())).trivial() }
 

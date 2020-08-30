@@ -11,11 +11,11 @@ use ring::{Constant, Number, Set, SymbolicResult};
 #[derive(Debug, Clone, Hash, PartialEq, PartialOrd, Eq, Ord)]
 pub struct Symbol {
   name: String,
-  set: Set,
+  dom: Set,
 }
 
 impl Symbol {
-  pub fn new(name_str: &str, set: Set) -> Arc<Symbol> {
+  pub fn new(name_str: &str, dom: Set) -> Arc<Symbol> {
     let name = name_str.replace(&[' ', '+', '-', '*', '/', '^', '=', '(', ')', '{', '}', '#', '~'][..], "");
     // any non-whitespace, non-special character
     assert_eq!(name, name_str);
@@ -23,7 +23,7 @@ impl Symbol {
     Arc::new(Symbol {
       // extension to other formattings
       name,
-      set,
+      dom,
     })
   }
 }
@@ -102,6 +102,22 @@ impl Expr {
         }
       }
     )
+  }
+
+  pub fn dom(&self) -> Set {
+    match_term!(
+    self, {
+      Expr::Cte => |_| Set::SR,
+      Expr::Sym => |s| s.dom.clone(),
+      Expr::Num
+    | Expr::Alg
+    //| Expr::Der
+    //| Expr::Int
+    //| Expr::Seq
+      => |e| {
+        e.dom()
+      }
+    })
   }
 
   pub fn free(&self, o: &Expr) -> bool {

@@ -51,9 +51,9 @@ impl<'a> Parser<'a> {
   }
 
   fn parenthesis(&mut self) -> Result<Expr, LangError> {
-    self.advance()?;
+    self.next()?;
     let expr = self.expr(0)?;
-    let rpar = self.advance()?;
+    let rpar = self.next()?;
 
     if let TokenKind::RPar = rpar.kind {
       Ok(expr)
@@ -74,7 +74,7 @@ impl<'a> Parser<'a> {
   fn primary(&mut self) -> Result<Expr, LangError> {
     match self.peek() {
       Some(TokenKind::Number(num)) => {
-        self.advance()?;
+        self.next()?;
         Ok(Expr::Num(Number::Z(
           //.
           num.into(),
@@ -83,11 +83,11 @@ impl<'a> Parser<'a> {
 
       Some(TokenKind::Symbol(sym)) => {
         let sym = sym.to_string();
-        self.advance()?;
+        self.next()?;
         Ok(Expr::Sym(Symbol::new(
           //.
           &sym,
-          Set::C,
+          Set::SR,
         )))
       }
 
@@ -103,12 +103,12 @@ impl<'a> Parser<'a> {
 
       Some(token) => {
         if let Some(expr) = Primary::dispatch(token) {
-          self.advance()?;
+          self.next()?;
           match expr {
             Primary::Neg | Primary::Pos => Ok(expr.eval(self.expr(expr.pred())?)),
           }
         } else {
-          let token = self.advance()?;
+          let token = self.next()?;
 
           //
           // hints
@@ -126,7 +126,7 @@ impl<'a> Parser<'a> {
 
       _ => {
         //.
-        self.advance().and(Err(LangError::End))
+        self.next().and(Err(LangError::End))
       }
     }
   }
@@ -154,7 +154,7 @@ impl<'a> Parser<'a> {
         | TokenKind::LSqr
         | TokenKind::Keyword(_) = token
       {
-        let token = self.advance()?;
+        let token = self.next()?;
 
         //
         // hints
@@ -164,7 +164,7 @@ impl<'a> Parser<'a> {
         //
 
         return Err(LangError::Expected {
-          expr: "`+, -, *, /, ^, !`, found primary expression",
+          expr: "`+, -, *, /, ^, !`, found root or primary expression",
           span: token.span,
         });
       }
@@ -178,7 +178,7 @@ impl<'a> Parser<'a> {
           if expr.left_pred() < binding {
             break;
           } else {
-            self.advance()?;
+            self.next()?;
             match expr {
               Op::Infix(ref i) => {
                 //.
@@ -207,19 +207,34 @@ impl<'a> Parser<'a> {
 
     let lhs = self.expr(0)?;
 
-    match self.peek() {
-      Some(TokenKind::Eq) => {
-        self.advance()?;
-        Ok(Ast::Assign(
-          //.
-          lhs,
-          self.expr(0)?,
-        ))
+    match self.advance()? {
+      Some(Token {
+        //.
+        span: _,
+        kind: TokenKind::Eq,
+      }) => {
+        let rhs = self.expr(0)?;
+
+        if let Some(token) = self.advance()? {
+          //
+          // hints
+          //
+          // <Empty> \in []
+          //
+
+          Err(LangError::Expected {
+            expr: "end of statement, found remaining token(s)",
+            span: token.span,
+          })
+        } else {
+          Ok(Ast::Assign(
+            //.
+            lhs, rhs,
+          ))
+        }
       }
 
-      Some(_) => {
-        let token = self.advance()?;
-
+      Some(token) => {
         //
         // hints
         //
@@ -228,7 +243,7 @@ impl<'a> Parser<'a> {
         //
 
         Err(LangError::Expected {
-          expr: "`=` or end of statement, found non-root token",
+          expr: "`=` or end of statement, found non-root expression",
           span: token.span,
         })
       }
@@ -251,12 +266,20 @@ impl<'a> Parser<'a> {
       )
   }
 
-  fn advance(&mut self) -> Result<Token, LangError> {
+  fn next(&mut self) -> Result<Token, LangError> {
     self
       .tokens
       .next()
       // consume
       .unwrap_or(Err(LangError::End))
+  }
+
+  fn advance(&mut self) -> Result<Option<Token>, LangError> {
+    self
+      .tokens
+      .next()
+      // handle
+      .transpose()
   }
 }
 

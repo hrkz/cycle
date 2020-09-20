@@ -1,6 +1,6 @@
 [package]
 name = "cycle"
-version = "0.1.0"
+version = "0.1.1"
 description = "Mathematical modeling using symbolic trees"
 authors = ["hrkz <hugo.frezat@gmail.com>"]
 
@@ -21,8 +21,9 @@ cycle_plot = []
 [dependencies]
 
 [[bin]]
-name = "main"
-path = "bin/main.rs"
+name = "omega"
+path = "bin/omega.rs"
+test = false
 doc = false
 
 [workspace]

@@ -201,7 +201,7 @@ impl<'a> Parser<'a> {
   fn root(&mut self) -> Result<Ast, LangError> {
     //
     // <Root> ::=
-    //    <Expr> "=" <Expr>
+    //    <Expr> ":=" <Expr>
     //  | <Expr>
     //
 
@@ -211,7 +211,7 @@ impl<'a> Parser<'a> {
       Some(Token {
         //.
         span: _,
-        kind: TokenKind::Eq,
+        kind: TokenKind::Def,
       }) => {
         let rhs = self.expr(0)?;
 
@@ -238,12 +238,12 @@ impl<'a> Parser<'a> {
         //
         // hints
         //
-        // <Expr> \in [TokenKind::Eq]
+        // <Expr> \in [TokenKind::Def]
         // <Empty>
         //
 
         Err(LangError::Expected {
-          expr: "`=` or end of statement, found non-root expression",
+          expr: "`:=` or end of statement, found non-root expression",
           span: token.span,
         })
       }

@@ -1,6 +1,6 @@
 /*
- Cycle v0.1.0
- [main]
+ Cycle v0.1.1
+ [Omega]
  Copyright (c) 2020-present, Hugo (hrkz) Frezat
 */
 
@@ -70,8 +70,8 @@ impl Interact for Interpreter {
         //.
         Some(expr),
       ) => {
-        // print expr
-        println!("{}", expr)
+        let expr = expr.trivial();
+        expr.map_or_else(|err| eprintln!("{}", err), |expr| println!("{}", expr))
       }
 
       Err(err) => {

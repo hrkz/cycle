@@ -1,6 +1,6 @@
 use crate::base::ring::repr::*;
 
-/// Basic smallest domain, Z
+/// Basic smallest domain, ℤ
 pub type Integer = i128;
 
 trait Arithmetic {
@@ -66,4 +66,3 @@ impl Domain for Integer {
 }
 
 impl Ring for Integer {}
-impl Field for Integer {}

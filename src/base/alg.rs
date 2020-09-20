@@ -1,32 +1,32 @@
 use std::fmt;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
-use crate::{Expr, Number, Set};
+use crate::{Expr, Form, Number, Set, SymbolicResult};
 
-#[derive(Debug, Clone, Hash, PartialEq, Copy)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Copy)]
 pub enum UOp {
   Elem,
   Fact,
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Copy)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Copy)]
 pub enum BOp {
   Pow,
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Copy)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Copy)]
 pub enum AOp {
   Add,
   Mul,
 }
 
-#[derive(Debug, Clone, Hash, PartialEq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Assoc {
   pub map: AOp,
   pub arg: Vec<Expr>,
 }
 
-#[derive(Debug, Clone, Hash, PartialEq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum Algebra {
   UExpr {
     map: UOp,
@@ -45,6 +45,81 @@ pub enum Algebra {
 }
 
 impl Algebra {
+  pub fn trivial(self) -> SymbolicResult<Expr> {
+    match self {
+      Algebra::UExpr {
+        //.
+        map: _,
+        arg: _,
+      } => Ok(Expr::Alg(self)),
+
+      Algebra::BExpr {
+        //.
+        map: BOp::Pow,
+        arg: (lhs, rhs),
+      } => {
+        match (lhs.trivial()?, rhs.trivial()?) {
+          // ```x ∈ ℚ, y ∈ ℤ```
+          (Expr::Num(lhs), Expr::Num(Number::Z(rhs))) => Ok(Expr::Num(lhs.pow(rhs)?)),
+
+          // ```1^x = x^0 = 1```
+          (Expr::ONE, _) | (_, Expr::ZERO) => Ok(Expr::ONE),
+
+          // ```x^1 = x```
+          (lhs, Expr::ONE) => Ok(lhs),
+
+          // ```0^y = 0, y ∈ ℚ > 0```
+          (Expr::ZERO, Expr::Num(rhs)) => {
+            if rhs
+              //.
+              .num()
+              .is_negative()
+            {
+              Err(Form {})
+            } else {
+              Ok(Expr::ZERO)
+            }
+          }
+
+          // ```(b^e)^p = b^(e*p), p ∈ ℤ```
+          (Expr::Alg(Algebra::BExpr { map: BOp::Pow, arg: (b, e) }), p) if p.dom().le(&Set::Z) => b.pow(e.mul(p).trivial()?).trivial(),
+
+          // ```(x_1 * x_2 * ... * x_n)^p = x_1^p * x_2^p * ... * x_n^p, p ∈ ℕ```
+          (Expr::Alg(Algebra::AssocExpr(Assoc { map: AOp::Mul, arg })), p) if p.dom().le(&Set::N) => Expr::assoc(AOp::Mul, arg.into_iter().map(|sub| sub.pow(p.clone())).collect()).trivial(),
+
+          (lhs, rhs) => {
+            //.
+            Ok(lhs.pow(rhs))
+          }
+        }
+      }
+
+      Algebra::AssocExpr(expr) => {
+        match expr.collect()?.trivial()? {
+          Assoc {
+            //.
+            map,
+            mut arg,
+          } => match (arg.len(), map) {
+            // ```Id(+) = 0```
+            (0, AOp::Add) => Ok(Expr::ZERO),
+            // ```Id(*) = 1```
+            (0, AOp::Mul) => Ok(Expr::ONE),
+
+            (1, _) => Ok(arg.swap_remove(0)),
+
+            _ => {
+              Ok(Expr::assoc(
+                //.
+                map, arg,
+              ))
+            }
+          },
+        }
+      }
+    }
+  }
+
   pub fn ord(&self) -> u64 {
     match self {
       Algebra::UExpr {
@@ -246,6 +321,183 @@ impl fmt::Display for Algebra {
   }
 }
 
+impl Assoc {
+  fn collect(self) -> SymbolicResult<Assoc> {
+    match self {
+      Assoc {
+        //.
+        map,
+        mut arg,
+      } => {
+        let mut assoc = Vec::new();
+
+        while let Some(expr) = arg.pop() {
+          match expr.trivial()? {
+            Expr::Alg(Algebra::AssocExpr(Assoc {
+              //.
+              map: sub_map,
+              arg: sub_arg,
+            }))
+              if map == sub_map =>
+            {
+              sub_arg.into_iter().for_each(|x| arg.push(x))
+            }
+
+            a => {
+              //.
+              assoc.push(a)
+            }
+          }
+        }
+
+        Ok(Assoc {
+          //.
+          map,
+          arg: assoc,
+        })
+      }
+    }
+  }
+
+  fn trivial(mut self) -> SymbolicResult<Assoc> {
+    let mut arg = Vec::new();
+
+    self.arg.sort_by(|lhs, rhs| lhs.cmp(rhs).reverse());
+    while !self.arg.is_empty() {
+      let lhs_arg = self.arg.pop();
+      let rhs_arg = self.arg.pop();
+
+      match (lhs_arg, rhs_arg) {
+        (None, None) => break,
+        (Some(expr), None) | (None, Some(expr)) => {
+          arg.push(expr) //.
+        }
+
+        (Some(lhs), Some(rhs)) => match (self.map, lhs, rhs) {
+          // ```0*x = x*0 = 0```
+          (AOp::Mul, Expr::ZERO, _) | (AOp::Mul, _, Expr::ZERO) => {
+            arg.resize_with(1, || Expr::ZERO);
+            break;
+          }
+
+          // ```x, y ∈ ℚ```
+          (AOp::Add, Expr::Num(lhs), Expr::Num(rhs)) => self.arg.push(Expr::Num(lhs.add(rhs)?)),
+          (AOp::Mul, Expr::Num(lhs), Expr::Num(rhs)) => self.arg.push(Expr::Num(lhs.mul(rhs)?)),
+
+          // ```x + 0 = 0 + x = x```
+          (AOp::Add, Expr::ZERO, o) | (AOp::Add, o, Expr::ZERO) => self.arg.push(o),
+          // ```x*1 = 1*x = x```
+          (AOp::Mul, Expr::ONE, o) | (AOp::Mul, o, Expr::ONE) => self.arg.push(o),
+
+          (map, lhs, rhs) => {
+            let lhs_base = self.base(&lhs)?;
+            let rhs_base = self.base(&rhs)?;
+
+            if lhs_base == rhs_base {
+              let times = self.times(&lhs)?.add(self.times(&rhs)?).trivial()?;
+              let factor = match map {
+                // ```c*x + d*x = (c + d)*x```
+                AOp::Add => lhs_base.mul(times),
+                // ```x^c * x^d = x^(c + d)```
+                AOp::Mul => lhs_base.pow(times),
+              };
+
+              self.arg.push(
+                factor.trivial()?, //.
+              )
+            } else {
+              arg.push(lhs);
+              self.arg.push(rhs)
+            }
+          }
+        },
+      }
+    }
+
+    Ok(Assoc {
+      //.
+      map: self.map,
+      arg,
+    })
+  }
+
+  fn base(&self, expr: &Expr) -> SymbolicResult<Expr> {
+    match (self.map, expr) {
+      (
+        AOp::Mul,
+        Expr::Alg(Algebra::BExpr {
+          //.
+          map: BOp::Pow,
+          arg: (b, _),
+        }),
+      ) => {
+        // ```b^x```
+        return Ok(*b.clone());
+      }
+
+      (
+        AOp::Add,
+        Expr::Alg(Algebra::AssocExpr(Assoc {
+          //.
+          map: AOp::Mul,
+          arg,
+        })),
+      ) => {
+        // ```c*t```
+        if let [Expr::Num(_), t @ ..] = arg.as_slice() {
+          return Expr::assoc(AOp::Mul, t.to_vec()).trivial();
+        }
+      }
+
+      _ => {
+        () //.
+      }
+    }
+
+    Ok(
+      expr.clone(), // ```x```
+    )
+  }
+
+  fn times(&self, expr: &Expr) -> SymbolicResult<Expr> {
+    match (self.map, expr) {
+      (
+        AOp::Mul,
+        Expr::Alg(Algebra::BExpr {
+          //.
+          map: BOp::Pow,
+          arg: (_, e),
+        }),
+      ) => {
+        // ```x^e```
+        return Ok(*e.clone());
+      }
+
+      (
+        AOp::Add,
+        Expr::Alg(Algebra::AssocExpr(Assoc {
+          //.
+          map: AOp::Mul,
+          arg,
+        })),
+      ) => {
+        // ```c*x```
+        if let Some(Expr::Num(c)) = arg.first() {
+          return Ok(Expr::Num(c.clone()));
+        }
+      }
+
+      _ => {
+        () //.
+      }
+    }
+
+    Ok(
+      Expr::ONE, // ```x = x^1```
+    )
+  }
+}
+
 impl Expr {
   /// ```a!```
   pub fn r#fact(self) -> Self { Self::Alg(Algebra::UExpr { map: UOp::Fact, arg: Box::new(self) }) }
@@ -260,6 +512,14 @@ impl Expr {
       map: BOp::Pow,
       arg: (Box::new(self), Box::new(o)),
     })
+  }
+
+  pub fn r#assoc(map: AOp, arg: Vec<Expr>) -> Self {
+    Self::Alg(Algebra::AssocExpr(Assoc {
+      //.
+      map,
+      arg,
+    }))
   }
 }
 
@@ -278,7 +538,7 @@ impl Mul for Expr {
 impl Neg for Expr {
   type Output = Self;
   /// ```-a = (-1)*a```
-  fn neg(self) -> Self { Self::Num(Number::NEG_ONE).mul(self) }
+  fn neg(self) -> Self { Self::NEG_ONE.mul(self) }
 }
 
 impl Sub for Expr {
@@ -290,5 +550,5 @@ impl Sub for Expr {
 impl Div for Expr {
   type Output = Self;
   /// ```a/b = a * b^-1```
-  fn div(self, o: Self) -> Self { self.mul(o.pow(Self::Num(Number::NEG_ONE))) }
+  fn div(self, o: Self) -> Self { self.mul(o.pow(Self::NEG_ONE)) }
 }

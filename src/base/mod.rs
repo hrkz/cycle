@@ -3,6 +3,7 @@ pub mod ring;
 
 use std::cmp::Ordering;
 use std::fmt;
+use std::iter;
 use std::sync::Arc;
 
 use alg::Algebra;
@@ -52,7 +53,7 @@ match_term {
   }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum Expr {
   /// Symbol (variable) on a ring
   Sym(Arc<Symbol>),
@@ -70,7 +71,26 @@ pub enum Expr {
 }
 
 impl Expr {
-  pub fn trivial(self) -> SymbolicResult<Expr> { Ok(self) }
+  pub const ZERO: Expr = Expr::Num(Number::Z(0));
+  pub const ONE: Expr = Expr::Num(Number::Z(1));
+  pub const NEG_ONE: Expr = Expr::Num(Number::Z(-1));
+
+  pub fn trivial(self) -> SymbolicResult<Expr> {
+    match_term!(
+      self, {
+        Expr::Sym
+      | Expr::Cte => |_| Ok(self),
+        Expr::Num => |n| Ok(Expr::Num(n.trivial()?)),
+        Expr::Alg
+      //| Expr::Der
+      //| Expr::Int
+      //| Expr::Seq
+        => |e| {
+          e.trivial()
+        }
+      }
+    )
+  }
 
   pub fn ord(&self) -> u64 {
     match_term!(
@@ -126,9 +146,7 @@ impl Expr {
     } else {
       match_term!(
         self, {
-          Expr::Sym
-        | Expr::Cte
-        | Expr::Num => |_| true,
+          Expr::Sym | Expr::Cte | Expr::Num => |_| true,
           Expr::Alg
           //| Expr::Der
           //| Expr::Int
@@ -150,9 +168,7 @@ impl Expr {
 
     match_term!(
       self, {
-        Expr::Sym
-      | Expr::Cte
-      | Expr::Num => |_| s.clone(),
+        Expr::Sym | Expr::Cte | Expr::Num => |_| s.clone(),
         Expr::Alg
       //| Expr::Der
       //| Expr::Int
@@ -175,7 +191,6 @@ impl Expr {
   }
 }
 
-impl Eq for Expr {}
 impl PartialOrd for Expr {
   fn partial_cmp(&self, o: &Self) -> Option<Ordering> { Some(self.cmp(o)) }
 }
@@ -184,12 +199,62 @@ impl Ord for Expr {
   fn cmp(&self, o: &Self) -> Ordering {
     match (self, o) {
       (Expr::Sym(l), Expr::Sym(r)) => l.cmp(r),
-      (Expr::Num(l), Expr::Num(r)) => r.cmp(l),
+      (Expr::Num(l), Expr::Num(r)) => l.cmp(r),
 
-      (Expr::Sym(_), _) => Ordering::Less,
-      (_, Expr::Sym(_)) => Ordering::Greater,
+      (
+        Expr::Alg(Algebra::UExpr {
+          //.
+          map: _,
+          arg: lhs,
+        }),
+        Expr::Alg(Algebra::UExpr {
+          //.
+          map: _,
+          arg: rhs,
+        }),
+      ) => lhs.cmp(&rhs),
+
+      (
+        Expr::Alg(Algebra::BExpr {
+          //.
+          map: _,
+          arg: (lhs_term, lhs_exp),
+        }),
+        Expr::Alg(Algebra::BExpr {
+          //.
+          map: _,
+          arg: (rhs_term, rhs_exp),
+        }),
+      ) => lhs_term.cmp(rhs_term).then(lhs_exp.cmp(rhs_exp)),
+
+      (
+        Expr::Alg(Algebra::AssocExpr(alg::Assoc {
+          //.
+          map: _,
+          arg: lhs,
+        })),
+        Expr::Alg(Algebra::AssocExpr(alg::Assoc {
+          //.
+          map: _,
+          arg: rhs,
+        })),
+      ) => {
+        lhs //.
+          .iter()
+          .rev()
+          .cmp(rhs.iter().rev())
+      }
+
+      (Expr::Alg(Algebra::BExpr { map: _, arg: (term, exp) }), rhs) => term.as_ref().cmp(rhs).then(exp.as_ref().cmp(&Expr::ONE)),
+      (lhs, Expr::Alg(Algebra::BExpr { map: _, arg: (term, exp) })) => lhs.cmp(term.as_ref()).then(Expr::ONE.cmp(&exp.as_ref())),
+
+      (Expr::Alg(Algebra::AssocExpr(alg::Assoc { map: _, arg: lhs })), rhs) => lhs.iter().rev().cmp(iter::repeat(rhs)),
+      (lhs, Expr::Alg(Algebra::AssocExpr(alg::Assoc { map: _, arg: rhs }))) => iter::repeat(lhs).cmp(rhs.iter().rev()),
+
       (Expr::Num(_), _) => Ordering::Less,
       (_, Expr::Num(_)) => Ordering::Greater,
+      (Expr::Sym(_), _) => Ordering::Less,
+      (_, Expr::Sym(_)) => Ordering::Greater,
 
       _ => {
         //.

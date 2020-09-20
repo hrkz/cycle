@@ -17,6 +17,7 @@ pub enum TokenKind<'a> {
   RPar,
   LSqr,
   RSqr,
+  Def,
   // lang
   Keyword(TokenKeyword),
 }
@@ -126,9 +127,29 @@ impl<'a> Lexer<'a> {
       "Int" => TokenKind::Keyword(TokenKeyword::Int),
       "Sum" => TokenKind::Keyword(TokenKeyword::Sum),
       "Prod" => TokenKind::Keyword(TokenKeyword::Prod),
+
       _ => {
         //.
         TokenKind::Symbol(text)
+      }
+    };
+
+    Ok(Token {
+      span,
+      //.
+      kind,
+    })
+  }
+
+  fn reserved(&mut self) -> Result<Token<'a>, LangError> {
+    let (text, span) = self.advance_while(|c| !c.is_whitespace())?;
+
+    let kind = match text {
+      ":=" => TokenKind::Def,
+
+      _ => {
+        //.
+        return Err(LangError::Lex);
       }
     };
 
@@ -172,7 +193,7 @@ impl<'a> Iterator for Lexer<'a> {
             self.advance();
             continue;
           } else {
-            Some(Err(LangError::Lex))
+            Some(self.reserved())
           }
         }
       };

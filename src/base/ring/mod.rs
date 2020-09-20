@@ -19,18 +19,14 @@ pub enum Number {
 }
 
 impl Number {
-  pub const ZERO: Number = Number::Z(0);
-  pub const ONE: Number = Number::Z(1);
-  pub const NEG_ONE: Number = Number::Z(-1);
-
   pub fn num(&self) -> i128 {
     match self {
-      // ```num(z) \in \mathbb{Z} = num(z/1) \in \mathbb{Q} = z,```
+      // ```num(z) ∈ ℤ = num(z/1) ∈ ℚ = z,```
       Number::Z(z) => {
         z.num() //.
       }
 
-      // ```num(n/d) \in \mathbb{Q} = n,```
+      // ```num(n/d) ∈ ℚ = n,```
       Number::Q(q) => {
         q.num() //.
       }
@@ -39,12 +35,12 @@ impl Number {
 
   pub fn den(&self) -> i128 {
     match self {
-      // ```den(z) \in \mathbb{Z} = den(z/1) \in \mathbb{Q} = 1,```
+      // ```den(z) ∈ ℤ = den(z/1) ∈ ℚ = 1,```
       Number::Z(z) => {
         z.den() //.
       }
 
-      // ```den(n/d) \in \mathbb{Q} = d,```
+      // ```den(n/d) ∈ ℚ = d,```
       Number::Q(q) => {
         q.den() //.
       }
@@ -80,12 +76,10 @@ impl Number {
         Ok(Number::Z(1))
       }
     } else {
-      if n < 0 {
-        Err(Form::ComplexInf)
-      } else if n == 0 {
-        Ok(Number::Z(1))
-      } else {
+      if n > 0 {
         Ok(Number::Z(0))
+      } else {
+        Err(Form {})
       }
     }
   }
@@ -94,11 +88,7 @@ impl Number {
     match self {
       Number::Q(q) => {
         if q.den() == 0 {
-          if q.num() == 0 {
-            return Err(Form::Indeterminate);
-          } else {
-            return Err(Form::ComplexInf);
-          }
+          return Err(Form {});
         }
 
         let g = Integer::gcd(&q.num(), &q.den());
@@ -130,12 +120,11 @@ impl Add for Number {
       (Number::Q(lhs), Number::Q(rhs)) => Number::Q(lhs + rhs),
 
       (
-        //.
         Number::Z(z),
         Number::Q(q),
       )
-      | (
-        //.
+      | //.
+      (
         Number::Q(q),
         Number::Z(z),
       ) => {
@@ -158,12 +147,11 @@ impl Mul for Number {
       (Number::Q(lhs), Number::Q(rhs)) => Number::Q(lhs * rhs),
 
       (
-        //.
         Number::Z(z),
         Number::Q(q),
       )
-      | (
-        //.
+      | //.
+      (
         Number::Q(q),
         Number::Z(z),
       ) => {
@@ -195,17 +183,15 @@ impl fmt::Display for Number {
   }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq)]
-pub enum Form {
-  /// Infinity on complex manifold i.e. Riemann sphere
-  ComplexInf,
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+/// Mathematical error
+pub struct Form {}
 
-  /// Also represents mathematical error
-  Indeterminate,
-  //.
+impl fmt::Display for Form {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { write!(f, "?") }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 /// Special constants
 pub enum Constant {
   /// Infinity
@@ -229,28 +215,18 @@ pub enum Constant {
 impl fmt::Display for Constant {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match self {
-      // special values
-      Constant::Infinity => write!(f, "∞"),
+      Constant::Infinity => {
+        write!(f, "∞") //.
+      }
 
-      // constants
-      Constant::Pi => {
-        write!(f, "[π]") //.
-      }
-      Constant::Euler => {
-        write!(f, "[e]") //.
-      }
-      Constant::Golden => {
-        write!(f, "[φ]") //.
-      }
-      Constant::Catalan => {
-        write!(f, "[G]") //.
-      }
-      Constant::Conway => {
-        write!(f, "[λ]") //.
-      }
+      Constant::Pi => write!(f, "[π]"),
+      Constant::Euler => write!(f, "[e]"),
+      Constant::Golden => write!(f, "[φ]"),
+      Constant::Catalan => write!(f, "[G]"),
+      Constant::Conway => write!(f, "[λ]"),
 
       Constant::I => {
-        write!(f, "[I]") //.
+        write!(f, "[i]") //.
       }
     }
   }

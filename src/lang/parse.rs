@@ -227,7 +227,7 @@ impl<'a> Parser<'a> {
             span: token.span,
           })
         } else {
-          Ok(Ast::Assign(
+          Ok(Ast::Define(
             //.
             lhs, rhs,
           ))

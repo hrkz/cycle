@@ -14,8 +14,8 @@ use std::ops;
 pub enum Ast {
   Expr(Expr),
 
-  /// ```x = y```
-  Assign(Expr, Expr),
+  /// ```x := y```
+  Define(Expr, Expr),
   //
   // Extension
   // (Load)
@@ -49,10 +49,10 @@ impl Interpreter {
         Ok(Some(self.resolve(&expr)))
       }
 
-      Ast::Assign(lhs, rhs) => {
+      Ast::Define(lhs, rhs) => {
         if !lhs.iter().any(|expr| matches!(expr, Expr::Sym(_))) {
           return Err(LangError::Rule {
-            rule: "can not assign to constant expression",
+            rule: "can not define constant expression",
           });
         }
 

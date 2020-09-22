@@ -84,8 +84,11 @@ impl Algebra {
           // ```(b^e)^p = b^(e*p), p ∈ ℤ```
           (Expr::Alg(Algebra::BExpr { map: BOp::Pow, arg: (b, e) }), p) if p.dom().le(&Set::Z) => b.pow(e.mul(p).trivial()?).trivial(),
 
-          // ```(x_1 * x_2 * ... * x_n)^p = x_1^p * x_2^p * ... * x_n^p, p ∈ ℕ```
-          (Expr::Alg(Algebra::AssocExpr(Assoc { map: AOp::Mul, arg })), p) if p.dom().le(&Set::N) => Expr::assoc(AOp::Mul, arg.into_iter().map(|sub| sub.pow(p.clone())).collect()).trivial(),
+          // ```(x_1 * x_2 * ... * x_n)^p = x_1^p * x_2^p * ... * x_n^p, p ∈ ℤ```
+          (Expr::Alg(Algebra::AssocExpr(Assoc { map: AOp::Mul, arg })), Expr::Num(p)) if p.dom().le(&Set::Z) => {
+            let prod = arg.into_iter().map(|sub| sub.pow(Expr::Num(p.clone()))).collect();
+            Expr::assoc(AOp::Mul, prod).trivial()
+          }
 
           (lhs, rhs) => {
             //.
@@ -95,7 +98,11 @@ impl Algebra {
       }
 
       Algebra::AssocExpr(expr) => {
-        match expr.collect()?.trivial()? {
+        match expr
+          //.
+          .associativity()?
+          .trivial()?
+        {
           Assoc {
             //.
             map,
@@ -322,7 +329,7 @@ impl fmt::Display for Algebra {
 }
 
 impl Assoc {
-  fn collect(self) -> SymbolicResult<Assoc> {
+  fn associativity(self) -> SymbolicResult<Assoc> {
     match self {
       Assoc {
         //.
@@ -374,8 +381,8 @@ impl Assoc {
         }
 
         (Some(lhs), Some(rhs)) => match (self.map, lhs, rhs) {
-          // ```0*x = x*0 = 0```
-          (AOp::Mul, Expr::ZERO, _) | (AOp::Mul, _, Expr::ZERO) => {
+          // ```0*x = 0```
+          (AOp::Mul, Expr::ZERO, _) => {
             arg.resize_with(1, || Expr::ZERO);
             break;
           }
@@ -384,26 +391,36 @@ impl Assoc {
           (AOp::Add, Expr::Num(lhs), Expr::Num(rhs)) => self.arg.push(Expr::Num(lhs.add(rhs)?)),
           (AOp::Mul, Expr::Num(lhs), Expr::Num(rhs)) => self.arg.push(Expr::Num(lhs.mul(rhs)?)),
 
-          // ```x + 0 = 0 + x = x```
-          (AOp::Add, Expr::ZERO, o) | (AOp::Add, o, Expr::ZERO) => self.arg.push(o),
-          // ```x*1 = 1*x = x```
-          (AOp::Mul, Expr::ONE, o) | (AOp::Mul, o, Expr::ONE) => self.arg.push(o),
+          // ```0 + x = x```
+          (AOp::Add, Expr::ZERO, o) => self.arg.push(o),
+          // ```1*x = x```
+          (AOp::Mul, Expr::ONE, o) => self.arg.push(o),
+
+          // ```c*(x_1 + x_2 + ... + x_n) = c*x_1 + c*x_2 + ... + c*x_n, c ∈ ℚ```
+          (AOp::Mul, Expr::Num(c), Expr::Alg(Algebra::AssocExpr(Assoc { map: AOp::Add, arg }))) if c.dom().le(&Set::Q) => {
+            let sum = arg.into_iter().map(|sub| sub.mul(Expr::Num(c.clone()))).collect();
+            self.arg.push(Expr::assoc(AOp::Add, sum).trivial()?)
+          }
 
           (map, lhs, rhs) => {
             let lhs_base = self.base(&lhs)?;
             let rhs_base = self.base(&rhs)?;
 
             if lhs_base == rhs_base {
-              let times = self.times(&lhs)?.add(self.times(&rhs)?).trivial()?;
+              let coeff = self.coeff(&lhs)?.add(self.coeff(&rhs)?).trivial()?;
               let factor = match map {
                 // ```c*x + d*x = (c + d)*x```
-                AOp::Add => lhs_base.mul(times),
+                AOp::Add => lhs_base.mul(coeff).trivial()?,
                 // ```x^c * x^d = x^(c + d)```
-                AOp::Mul => lhs_base.pow(times),
+                AOp::Mul => lhs_base.pow(coeff).trivial()?,
               };
 
+              if factor.eq(&self.id()) {
+                continue;
+              }
+
               self.arg.push(
-                factor.trivial()?, //.
+                factor, //.
               )
             } else {
               arg.push(lhs);
@@ -459,7 +476,7 @@ impl Assoc {
     )
   }
 
-  fn times(&self, expr: &Expr) -> SymbolicResult<Expr> {
+  fn coeff(&self, expr: &Expr) -> SymbolicResult<Expr> {
     match (self.map, expr) {
       (
         AOp::Mul,
@@ -495,6 +512,13 @@ impl Assoc {
     Ok(
       Expr::ONE, // ```x = x^1```
     )
+  }
+
+  fn id(&self) -> Expr {
+    match self.map {
+      AOp::Add => Expr::ZERO,
+      AOp::Mul => Expr::ONE,
+    }
   }
 }
 

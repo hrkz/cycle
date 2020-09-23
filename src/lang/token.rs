@@ -107,7 +107,7 @@ impl<'a> Lexer<'a> {
     let (text, span) = self.advance_while(|c| c.is_ascii_digit())?;
 
     let num = text
-      .parse::<u64>() // \in \mathbb{N}
+      .parse::<u64>() // ∈ ℕ
       .map_err(|err| LangError::Integer { err, span: span.clone() })?;
 
     Ok(Token {
@@ -142,7 +142,7 @@ impl<'a> Lexer<'a> {
   }
 
   fn reserved(&mut self) -> Result<Token<'a>, LangError> {
-    let (text, span) = self.advance_while(|c| !c.is_whitespace())?;
+    let (text, span) = self.advance_while(|c| c == ':' || c == '=')?;
 
     let kind = match text {
       ":=" => TokenKind::Def,
@@ -180,11 +180,11 @@ impl<'a> Iterator for Lexer<'a> {
         '[' => Some(self.tok(TokenKind::LSqr)),
         ']' => Some(self.tok(TokenKind::RSqr)),
 
-        '0'..='9' => {
+        n if n.is_ascii_digit() => {
           Some(self.number()) //.
         }
 
-        'a'..='z' | 'A'..='Z' | '_' => {
+        s if s.is_alphabetic() => {
           Some(self.symbol()) //.
         }
 
@@ -193,7 +193,10 @@ impl<'a> Iterator for Lexer<'a> {
             self.advance();
             continue;
           } else {
-            Some(self.reserved())
+            Some(
+              //.
+              self.reserved(),
+            )
           }
         }
       };

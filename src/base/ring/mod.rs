@@ -194,21 +194,27 @@ impl fmt::Display for Form {
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 /// Special constants
 pub enum Constant {
-  /// Infinity
+  /// ∞ Infinity
   Infinity,
 
-  /// Pi, Archimede's constant
+  /// [π] Pi, Archimede's constant
   Pi,
-  /// Euler's number
-  Euler,
-  /// Golden ratio
-  Golden,
-  /// Catalan's constant
+  /// [e] Euler's number
+  E,
+  /// [φ] Golden ratio
+  GoldenRatio,
+  /// [G] Catalan's constant
   Catalan,
-  /// Conway's constant
-  Conway,
+  /// [γ] Euler-Mascheroni constant
+  EulerGamma,
+  /// [K] Khinchin's constant
+  Khinchin,
+  /// [A] Glaisher's constant
+  Glaisher,
+  /// [ζ3] Apéry's constant
+  Apery,
 
-  /// Imaginary number
+  /// [i] Imaginary number
   I,
 }
 
@@ -220,10 +226,13 @@ impl fmt::Display for Constant {
       }
 
       Constant::Pi => write!(f, "[π]"),
-      Constant::Euler => write!(f, "[e]"),
-      Constant::Golden => write!(f, "[φ]"),
+      Constant::E => write!(f, "[e]"),
+      Constant::GoldenRatio => write!(f, "[φ]"),
       Constant::Catalan => write!(f, "[G]"),
-      Constant::Conway => write!(f, "[λ]"),
+      Constant::EulerGamma => write!(f, "[γ]"),
+      Constant::Khinchin => write!(f, "[K]"),
+      Constant::Glaisher => write!(f, "[A]"),
+      Constant::Apery => write!(f, "[ζ3]"),
 
       Constant::I => {
         write!(f, "[i]") //.

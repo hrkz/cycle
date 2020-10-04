@@ -24,8 +24,10 @@ pub enum TokenKind<'a> {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TokenKeyword {
-  Diff,
-  Int,
+  Interval,
+  // operators
+  Derivative,
+  Integral,
   Sum,
   Prod,
 }
@@ -69,11 +71,9 @@ impl<'a> Lexer<'a> {
   {
     let start = self.cur;
 
-    self
-      .src
-      .chars()
+    self.src[start..]
       // iter
-      .skip(self.cur)
+      .chars()
       .take_while(|&c| predicate(c))
       .for_each(|c| {
         self.cur += c.len_utf8();
@@ -123,11 +123,6 @@ impl<'a> Lexer<'a> {
     let (text, span) = self.advance_while(|c| c.is_alphabetic() || c.is_ascii_digit() || c == '_')?;
 
     let kind = match text {
-      "Diff" => TokenKind::Keyword(TokenKeyword::Diff),
-      "Int" => TokenKind::Keyword(TokenKeyword::Int),
-      "Sum" => TokenKind::Keyword(TokenKeyword::Sum),
-      "Prod" => TokenKind::Keyword(TokenKeyword::Prod),
-
       _ => {
         //.
         TokenKind::Symbol(text)
@@ -142,10 +137,24 @@ impl<'a> Lexer<'a> {
   }
 
   fn reserved(&mut self) -> Result<Token<'a>, LangError> {
-    let (text, span) = self.advance_while(|c| c == ':' || c == '=')?;
+    let (text, span) = self.advance_while(|c|
+      //.
+      c == ':' ||
+      c == '=' ||
+      c == ';' ||
+      c == '∂' ||
+      c == '∫' ||
+      c == '∑' ||
+      c == '∏')?;
 
     let kind = match text {
       ":=" => TokenKind::Def,
+      ";" => TokenKind::Keyword(TokenKeyword::Interval),
+
+      "∂" => TokenKind::Keyword(TokenKeyword::Derivative),
+      "∫" => TokenKind::Keyword(TokenKeyword::Integral),
+      "∑" => TokenKind::Keyword(TokenKeyword::Sum),
+      "∏" => TokenKind::Keyword(TokenKeyword::Prod),
 
       _ => {
         //.

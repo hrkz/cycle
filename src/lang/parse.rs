@@ -1,4 +1,4 @@
-use crate::lang::{Ast, LangError, Lexer, Token, TokenKind};
+use crate::lang::{Ast, LangError, Lexer, Token, TokenKeyword, TokenKind};
 use crate::*;
 
 use std::iter::Peekable;
@@ -12,7 +12,7 @@ use std::iter::Peekable;
 ///  | Symbol
 ///  | Keyword
 ///  | Symbol "(" <Expr> ")"
-///  | Keyword "[" <Expr> "]"
+///  | Keyword "[" <Expr> "]" ...
 ///  | "(" <Expr> ")"
 ///  | "+" <Expr>
 ///  | "-" <Expr>
@@ -45,10 +45,7 @@ pub struct Parser<'a> {
 impl<'a> Parser<'a> {
   pub fn parse(src: &'a str) -> Result<Ast, LangError> { Parser { tokens: Lexer::new(src).peekable() }.root() }
 
-  fn keyword(&mut self) -> Result<Expr, LangError> {
-    //.
-    unimplemented!()
-  }
+  fn keyword(&mut self, _keyword: TokenKeyword) -> Result<Expr, LangError> { unimplemented!() }
 
   fn parenthesis(&mut self) -> Result<Expr, LangError> {
     self.next()?;
@@ -91,9 +88,9 @@ impl<'a> Parser<'a> {
         )))
       }
 
-      Some(TokenKind::Keyword(_kw)) => {
+      Some(TokenKind::Keyword(kw)) => {
         //.
-        self.keyword()
+        self.keyword(kw)
       }
 
       Some(TokenKind::LPar) => {

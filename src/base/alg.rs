@@ -166,60 +166,6 @@ impl Algebra {
     }
   }
 
-  pub fn len(&self) -> u64 {
-    match self {
-      Algebra::UExpr { map: _, arg } => arg.len(),
-      Algebra::BExpr { map: _, arg } => arg.0.len() + arg.1.len(),
-
-      Algebra::AssocExpr(Assoc {
-        //.
-        map: _,
-        arg,
-      }) => {
-        arg
-          .iter()
-          .map(
-            |e| e.len(), //.
-          )
-          .sum()
-      }
-    }
-  }
-
-  pub fn dom(&self) -> Set {
-    match self {
-      Algebra::UExpr { map: _, arg } => arg.dom(),
-      Algebra::BExpr { map: _, arg } => std::cmp::max(arg.0.dom(), arg.1.dom()),
-
-      Algebra::AssocExpr(Assoc {
-        //.
-        map: _,
-        arg,
-      }) => {
-        arg.iter().map(|e| e.dom()).max().unwrap_or(
-          Set::SR, // symbolic
-        )
-      }
-    }
-  }
-
-  pub fn free(&self, o: &Expr) -> bool {
-    match self {
-      Algebra::UExpr { map: _, arg } => arg.free(o),
-      Algebra::BExpr { map: _, arg } => arg.0.free(o) && arg.1.free(o),
-
-      Algebra::AssocExpr(Assoc {
-        //.
-        map: _,
-        arg,
-      }) => {
-        arg.iter().all(
-          |e| e.free(o), //.
-        )
-      }
-    }
-  }
-
   pub fn subs(&self, m: &Expr, s: &Expr) -> Expr {
     match self {
       Algebra::UExpr {
@@ -523,6 +469,18 @@ impl Assoc {
 }
 
 impl Expr {
+  fn ord(&self) -> u64 {
+    match self {
+      Expr::Sym(_) | Expr::Cte(_) => 0,
+      //Expr::Cal(_) => u64::MAX,
+      Expr::Num(n) => n.len(),
+      Expr::Alg(a) => {
+        //.
+        a.ord()
+      }
+    }
+  }
+
   /// ```a!```
   pub fn r#fact(self) -> Self { Self::Alg(Algebra::UExpr { map: UOp::Fact, arg: Box::new(self) }) }
 

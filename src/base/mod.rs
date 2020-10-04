@@ -4,9 +4,10 @@ pub mod ring;
 use std::cmp::Ordering;
 use std::fmt;
 use std::iter;
+use std::ops;
 use std::sync::Arc;
 
-use alg::Algebra;
+use alg::{Algebra, Assoc};
 use ring::{Constant, Number, Set, SymbolicResult};
 
 #[derive(Debug, Clone, Hash, PartialEq, PartialOrd, Eq, Ord)]
@@ -65,9 +66,10 @@ pub enum Expr {
 
   /// Algebraic operation
   Alg(Algebra),
-  //Der(Derivative),
-  //Int(Integral),
-  //Seq(Sequence),
+  // Calculus operation (limit, derivative, integral)
+  //Cal(Calculus),
+  // Sequence operation (sum, product)
+  //Sq(Sequence),
 }
 
 impl Expr {
@@ -82,9 +84,8 @@ impl Expr {
       | Expr::Cte => |_| Ok(self),
         Expr::Num => |n| Ok(Expr::Num(n.trivial()?)),
         Expr::Alg
-      //| Expr::Der
-      //| Expr::Int
-      //| Expr::Seq
+    //| Expr::Cal
+    //| Expr::Sq
         => |e| {
           e.trivial()
         }
@@ -92,70 +93,55 @@ impl Expr {
     )
   }
 
-  pub fn ord(&self) -> u64 {
-    match_term!(
-      self, {
-        Expr::Sym | Expr::Cte => |_| 0,
-        Expr::Num
-      | Expr::Alg
-      //| Expr::Der
-      //| Expr::Int
-      //| Expr::Seq
-        => |e| {
-          e.ord()
-        }
-      }
-    )
-  }
-
   pub fn len(&self) -> u64 {
-    match_term!(
-      self, {
-        Expr::Sym | Expr::Cte => |_| 1,
-        Expr::Num
-      | Expr::Alg
-      //| Expr::Der
-      //| Expr::Int
-      //| Expr::Seq
-        => |e| {
-          e.len()
-        }
+    match self {
+      Expr::Cte(_)
+    | Expr::Sym(_) => 1,
+      Expr::Num(n) => n.len(),
+      Expr::Alg(_)
+  //| Expr::Cal(_)
+  //| Expr::Sq(_)
+      => {
+        self.iter().fold(0,
+          |acc, e| acc + e.len()
+        )
       }
-    )
+    }
   }
 
   pub fn dom(&self) -> Set {
-    match_term!(
-    self, {
-      Expr::Cte => |_| Set::SR,
-      Expr::Sym => |s| s.dom.clone(),
-      Expr::Num
-    | Expr::Alg
-    //| Expr::Der
-    //| Expr::Int
-    //| Expr::Seq
-      => |e| {
-        e.dom()
+    match self {
+      Expr::Cte(_) => Set::SR,
+      Expr::Sym(s) => s.dom.clone(),
+      Expr::Num(n) => n.dom(),
+      Expr::Alg(_)
+  //| Expr::Cal(_)
+  //| Expr::Sq(_)
+      => {
+        self.iter().fold(Set::AS,
+          |acc, e| acc.max(e.dom())
+        )
       }
-    })
+    }
   }
 
   pub fn free(&self, o: &Expr) -> bool {
-    if self == o {
-      false
-    } else {
-      match_term!(
-        self, {
-          Expr::Sym | Expr::Cte | Expr::Num => |_| true,
-          Expr::Alg
-          //| Expr::Der
-          //| Expr::Int
-          //| Expr::Seq
-          => |e| {
-            e.free(o)
-          }
-        }
-      )
+    if self.eq(o) {
+      return false;
+    }
+
+    match self {
+      Expr::Cte(_)
+    | Expr::Sym(_)
+    | Expr::Num(_) => true,
+      Expr::Alg(_)
+  //| Expr::Cal(_)
+  //| Expr::Sq(_)
+      => {
+        self.iter().fold(true,
+          |acc, e| acc && e.free(o)
+        )
+      }
     }
   }
 
@@ -170,9 +156,8 @@ impl Expr {
       self, {
         Expr::Sym | Expr::Cte | Expr::Num => |_| s.clone(),
         Expr::Alg
-      //| Expr::Der
-      //| Expr::Int
-      //| Expr::Seq
+    //| Expr::Cal
+    //| Expr::Sq
         => |e| {
           e.subs(m, s)
         }
@@ -180,13 +165,25 @@ impl Expr {
     )
   }
 
+  pub fn is_leaf(&self) -> bool {
+    match self {
+      Expr::Sym(_) | Expr::Cte(_) | Expr::Num(_) => true,
+      Expr::Alg(_)
+  //| Expr::Cal(_)
+  //| Expr::Sq(_)
+      => {
+        false
+      }
+    }
+  }
+
   pub fn iter(
     //.
     &self,
-  ) -> impl Iterator<Item = &Expr> + '_ {
+  ) -> Iter {
     Iter {
       // root
-      stack: vec![self],
+      root: self,
     }
   }
 }
@@ -228,12 +225,12 @@ impl Ord for Expr {
       ) => lhs_term.cmp(rhs_term).then(lhs_exp.cmp(rhs_exp)),
 
       (
-        Expr::Alg(Algebra::AssocExpr(alg::Assoc {
+        Expr::Alg(Algebra::AssocExpr(Assoc {
           //.
           map: _,
           arg: lhs,
         })),
-        Expr::Alg(Algebra::AssocExpr(alg::Assoc {
+        Expr::Alg(Algebra::AssocExpr(Assoc {
           //.
           map: _,
           arg: rhs,
@@ -248,8 +245,8 @@ impl Ord for Expr {
       (Expr::Alg(Algebra::BExpr { map: _, arg: (term, exp) }), rhs) => term.as_ref().cmp(rhs).then(exp.as_ref().cmp(&Expr::ONE)),
       (lhs, Expr::Alg(Algebra::BExpr { map: _, arg: (term, exp) })) => lhs.cmp(term.as_ref()).then(Expr::ONE.cmp(&exp.as_ref())),
 
-      (Expr::Alg(Algebra::AssocExpr(alg::Assoc { map: _, arg: lhs })), rhs) => lhs.iter().rev().cmp(iter::repeat(rhs)),
-      (lhs, Expr::Alg(Algebra::AssocExpr(alg::Assoc { map: _, arg: rhs }))) => iter::repeat(lhs).cmp(rhs.iter().rev()),
+      (Expr::Alg(Algebra::AssocExpr(Assoc { map: _, arg: lhs })), rhs) => lhs.iter().rev().cmp(iter::repeat(rhs)),
+      (lhs, Expr::Alg(Algebra::AssocExpr(Assoc { map: _, arg: rhs }))) => iter::repeat(lhs).cmp(rhs.iter().rev()),
 
       (Expr::Num(_), _) => Ordering::Less,
       (_, Expr::Num(_)) => Ordering::Greater,
@@ -264,18 +261,24 @@ impl Ord for Expr {
   }
 }
 
-struct Iter<'e> {
-  // recursive depth-first visitor over the expressions
-  stack: Vec<&'e Expr>,
+pub type Interval = ops::Range<Expr>;
+
+pub struct Iter<'e> {
+  // recursive visitor over the expressions
+  root: &'e Expr,
 }
 
-impl<'e> Iterator for Iter<'e> {
-  type Item = &'e Expr;
-
-  fn next(&mut self) -> Option<Self::Item> {
-    let curr = self.stack.pop()?;
-
-    match curr {
+impl<'e> Iter<'e> {
+  pub fn fold<B, F>(
+    //.
+    &self,
+    init: B,
+    f: F,
+  ) -> B
+  where
+    F: Fn(B, &Expr) -> B,
+  {
+    match self.root {
       Expr::Alg(alg) => {
         match alg {
           Algebra::UExpr {
@@ -284,7 +287,7 @@ impl<'e> Iterator for Iter<'e> {
             arg,
           } => {
             //.
-            self.stack.push(&arg)
+            f(init, arg.as_ref())
           }
 
           Algebra::BExpr {
@@ -292,27 +295,73 @@ impl<'e> Iterator for Iter<'e> {
             map: _,
             arg,
           } => {
-            self.stack.push(&arg.0);
-            self.stack.push(&arg.1);
+            //.
+            f(f(init, arg.0.as_ref()), arg.1.as_ref())
           }
 
-          Algebra::AssocExpr(alg::Assoc {
+          Algebra::AssocExpr(Assoc {
             // n
             map: _,
             arg,
           }) => {
-            arg.iter().for_each(
-              //.
-              |e| self.stack.push(&e),
-            )
+            //.
+            arg.iter().fold(init, |acc, e| f(acc, e))
           }
         }
       }
 
-      _ => (),
+      atom => {
+        //.
+        f(init, atom)
+      }
+    }
+  }
+
+  pub fn fold_rec<B, F>(
+    //.
+    &self,
+    init: B,
+    f: &F,
+  ) -> B
+  where
+    F: Fn(B, &Expr) -> B,
+  {
+    let init = f(
+      init, //.
+      self.root,
+    );
+
+    if self.root.is_leaf() {
+      init
+    } else {
+      self.fold(
+        init,
+        |acc, e| e.iter().fold_rec(acc, f), //.
+      )
+    }
+  }
+
+  pub fn any<F>(
+    //.
+    &self,
+    f: &F,
+  ) -> bool
+  where
+    F: Fn(&Expr) -> bool,
+  {
+    let init = f(self.root);
+    if init {
+      return true;
     }
 
-    Some(curr)
+    if self.root.is_leaf() {
+      init
+    } else {
+      self.fold(
+        init,
+        |acc, e| acc || e.iter().any(f), //.
+      )
+    }
   }
 }
 
@@ -324,9 +373,8 @@ impl fmt::Display for Expr {
       | Expr::Cte
       | Expr::Num
       | Expr::Alg
-      //| Expr::Der
-      //| Expr::Int
-      //| Expr::Seq
+    //| Expr::Cal
+    //| Expr::Sq
         => |e| {
           write!(f, "{}", e)
         }

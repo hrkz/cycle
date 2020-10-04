@@ -47,7 +47,6 @@ impl Number {
     }
   }
 
-  pub fn ord(&self) -> u64 { self.len() }
   pub fn len(&self) -> u64 { 1 + (self.den() != 1) as u64 }
 
   pub fn dom(&self) -> Set {
@@ -197,24 +196,24 @@ pub enum Constant {
   /// ∞ Infinity
   Infinity,
 
-  /// [π] Pi, Archimede's constant
+  /// \[π] Pi, Archimede's constant
   Pi,
-  /// [e] Euler's number
+  /// \[e] Euler's number
   E,
-  /// [φ] Golden ratio
+  /// \[φ] Golden ratio
   GoldenRatio,
-  /// [G] Catalan's constant
+  /// \[G] Catalan's constant
   Catalan,
-  /// [γ] Euler-Mascheroni constant
+  /// \[γ] Euler-Mascheroni constant
   EulerGamma,
-  /// [K] Khinchin's constant
+  /// \[K] Khinchin's constant
   Khinchin,
-  /// [A] Glaisher's constant
+  /// \[A] Glaisher's constant
   Glaisher,
-  /// [ζ3] Apéry's constant
+  /// \[ζ3] Apéry's constant
   Apery,
 
-  /// [i] Imaginary number
+  /// \[i] Imaginary number
   I,
 }
 

@@ -41,6 +41,8 @@ pub trait Field
 
 #[derive(Debug, Clone, Hash, PartialEq, PartialOrd, Eq, Ord)]
 pub enum Set {
+  /// Abstract
+  AS,
   /// Natural
   N,
   /// Integer

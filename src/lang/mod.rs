@@ -50,7 +50,7 @@ impl Interpreter {
       }
 
       Ast::Define(lhs, rhs) => {
-        if !lhs.iter().any(|expr| matches!(expr, Expr::Sym(_))) {
+        if !lhs.iter().any(&|expr| matches!(expr, Expr::Sym(_))) {
           return Err(LangError::Rule {
             rule: "can not define constant expression",
           });
@@ -75,11 +75,15 @@ impl Interpreter {
   }
 
   fn resolve(&mut self, lhs: &Expr) -> Expr {
-    lhs.iter().filter_map(|sub| self.symbols.get(&sub).map(|res| (sub, res))).fold(lhs.clone(), |expr, (sub, res)| {
-      expr.subs(
-        &sub, //.
-        &res,
-      )
+    lhs.iter().fold(lhs.clone(), |acc, sub| {
+      if let Some(res) = self.symbols.get(sub) {
+        acc.subs(
+          sub, //.
+          res,
+        )
+      } else {
+        acc
+      }
     })
   }
 }

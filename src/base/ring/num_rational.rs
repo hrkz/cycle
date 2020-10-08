@@ -20,26 +20,31 @@ impl Rational {
     }
   }
 
-  pub fn zero() -> Rational { Rational::new(0, 1) }
-  pub fn unit() -> Rational { Rational::new(1, 1) }
+  pub fn zero() -> Rational {
+    Rational::new(
+      0, //.
+      1,
+    )
+  }
+  pub fn one() -> Rational {
+    Rational::new(
+      1, //.
+      1,
+    )
+  }
 
   // decompose
   // self = self.trunc() + self.fract()
 
-  pub fn trunc(&self) -> Rational {
-    Rational::from(self.num / self.den) //.
-  }
+  pub fn trunc(&self) -> Rational { Rational::from(self.num / self.den) }
 
-  pub fn fract(&self) -> Rational {
-    Rational::new(
-      //.
-      self.num % self.den,
-      self.den,
-    )
-  }
+  pub fn fract(&self) -> Rational { Rational::new(self.num % self.den, self.den) }
 
-  pub fn is_positive(&self) -> bool { (self.num > 0 && self.den > 0) || (self.num < 0 && self.den < 0) }
-  pub fn is_negative(&self) -> bool { (self.num < 0 && self.den > 0) || (self.num > 0 && self.den < 0) }
+  pub fn is_positive(&self) -> bool { !self.is_negative() }
+  pub fn is_negative(&self) -> bool {
+    (self.num < 0 && self.den > 0) //.
+      || (self.num > 0 && self.den < 0)
+  }
 }
 
 impl Domain for Rational {
@@ -200,4 +205,89 @@ impl Neg for Rational {
   type Output = Rational;
 
   fn neg(self) -> Rational { Rational::new(-self.num, self.den) }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn domain() {
+    let r1_2 = Rational::new(1, 2);
+    let r2_1 = Rational::new(2, 1);
+    let r2_5 = Rational::new(2, 5);
+    let r4_5 = Rational::new(4, 5);
+    let r7_2 = Rational::new(7, 2);
+    let r3_9 = Rational::new(3, 9);
+
+    // trivial path: u, v = 0
+    assert_eq!(Domain::gcd(&r1_2, &Rational::zero()), r1_2);
+    assert_eq!(Domain::lcm(&r1_2, &Rational::zero()), Rational::zero());
+    // u = v
+    assert_eq!(Domain::gcd(&r2_5, &r2_5), r2_5);
+    assert_eq!(Domain::lcm(&r2_5, &r2_5), r2_5);
+    // v % u = 0
+    assert_eq!(Domain::gcd(&r2_5, &r4_5), r2_5);
+    assert_eq!(Domain::lcm(&r2_5, &r4_5), r4_5);
+    // v % u != 0
+    assert_eq!(Domain::gcd(&r7_2, &r4_5), Rational::new(1, 10));
+    assert_eq!(Domain::gcd(&r1_2, &r3_9), Rational::new(3, 18));
+    assert_eq!(Domain::lcm(&r2_5, &r7_2), Rational::new(14, 1));
+    assert_eq!(Domain::lcm(&r3_9, &r2_1), Rational::new(6, 1));
+
+    let m0 = Rational::new(13, 121);
+    let u0 = Rational::new(234, 19);
+    let v0 = Rational::new(32, 7);
+
+    // commutative ```gcd(u, v) = gcd(v, u)```
+    assert_eq!(Domain::gcd(&u0, &v0), Domain::gcd(&v0, &u0));
+    // associative ```gcd(u, gcd(v, m)) = gcd(gcd(u, v), m)```
+    assert_eq!(Domain::gcd(&u0, &Domain::gcd(&v0, &m0)), Domain::gcd(&Domain::gcd(&u0, &v0), &m0));
+
+    // ```lcm(u, gcd(u, v)) = u```
+    assert_eq!(Domain::lcm(&u0, &Domain::gcd(&u0, &v0)), u0);
+    // ```lcm(u, gcd(v, m)) = gcd(lcm(u, v), lcm(u, m))```
+    assert_eq!(Domain::lcm(&u0, &Domain::gcd(&v0, &m0)), Domain::gcd(&Domain::lcm(&u0, &v0), &Domain::lcm(&u0, &m0)));
+    // ```lcm(u, v)*gcd(u, v) = u*v```
+    assert_eq!(Domain::lcm(&u0, &v0) * Domain::gcd(&u0, &v0), u0 * v0);
+  }
+
+  #[test]
+  fn ops() {
+    let r1_1 = Rational::one();
+    let r1_2 = Rational::new(1, 2);
+    let r2_1 = Rational::new(2, 1);
+    let n1_2 = Rational::new(-1, 2);
+    let r3_7 = Rational::new(3, 7);
+    let r9_4 = Rational::new(9, 4);
+
+    // u = v
+    assert_eq!(r1_2 + r1_2, Rational::new(1, 1));
+    assert_eq!(r1_2 * r1_2, Rational::new(1, 4));
+    // a/b = b/a
+    assert_eq!(r1_2 + r2_1, Rational::new(5, 2));
+    assert_eq!(r1_2 * r2_1, Rational::new(1, 1));
+    // a/b = a/c
+    assert_eq!(r1_2 + r1_1, Rational::new(3, 2));
+    assert_eq!(r1_2 * r1_1, Rational::new(1, 2));
+    // a/b = -a/b
+    assert_eq!(r1_2 + n1_2, Rational::new(0, 1));
+    assert_eq!(r1_2 * n1_2, Rational::new(-1, 4));
+    // a/b = c/d
+    assert_eq!(r3_7 + r1_2, Rational::new(13, 14));
+    assert_eq!(r3_7 * r1_2, Rational::new(3, 14));
+    assert_eq!(r3_7 + r9_4, Rational::new(75, 28));
+    assert_eq!(r3_7 * r9_4, Rational::new(27, 28));
+
+    // ```a/b - c/d = a/b + -c/d```
+    assert_eq!(r3_7 - r1_2, r3_7 + r1_2.neg());
+    assert_eq!(r3_7 - r9_4, r3_7 + r9_4.neg());
+
+    // ```a/b / c/d = a/b * d/c```
+    assert_eq!(r3_7 / r1_2, r3_7 * Rational::new(r1_2.den, r1_2.num));
+    assert_eq!(r3_7 / r9_4, r3_7 * Rational::new(r9_4.den, r9_4.num));
+  }
+
+  #[test]
+  fn decompose() {}
 }

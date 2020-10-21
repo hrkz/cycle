@@ -177,6 +177,18 @@ impl Expr {
     }
   }
 
+  fn ord(&self) -> u64 {
+    match self {
+      Expr::Sym(_) | Expr::Cte(_) => 0,
+
+      Expr::Num(n) => n.len(),
+      Expr::Alg(a) => {
+        //.
+        a.ord()
+      }
+    }
+  }
+
   pub fn iter(
     //.
     &self,

@@ -73,7 +73,6 @@ mod tests {
 
   #[test]
   fn domain() {
-    // gcd
     // trivial path: u, v = 0
     assert_eq!(Domain::gcd(&5, &0), 5);
     assert_eq!(Domain::lcm(&5, &0), 0);

@@ -17,6 +17,7 @@ pub enum TokenKind<'a> {
   RPar,
   LSqr,
   RSqr,
+  Comma,
   Def,
   // lang
   Keyword(TokenKeyword),
@@ -188,6 +189,7 @@ impl<'a> Iterator for Lexer<'a> {
         ')' => Some(self.tok(TokenKind::RPar)),
         '[' => Some(self.tok(TokenKind::LSqr)),
         ']' => Some(self.tok(TokenKind::RSqr)),
+        ',' => Some(self.tok(TokenKind::Comma)),
 
         n if n.is_ascii_digit() => {
           Some(self.number()) //.

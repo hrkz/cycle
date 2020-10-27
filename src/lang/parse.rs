@@ -47,6 +47,33 @@ impl<'a> Parser<'a> {
 
   fn keyword(&mut self, _keyword: TokenKeyword) -> Result<Expr, LangError> { unimplemented!() }
 
+  fn function(&mut self, name: &str) -> Result<Expr, LangError> {
+    self.next()?;
+    let expr = self.expr(0)?;
+    let mut arg = vec![expr];
+
+    while let Some(TokenKind::Comma) = self.peek() {
+      self.next()?;
+      arg.push(self.expr(0)?);
+    }
+
+    let rpar = self.next()?;
+    if let TokenKind::RPar = rpar.kind {
+      Ok(Expr::map(name, arg))
+    } else {
+      //
+      // hints
+      //
+      // <Primary> \in [TokenKind::RPar]
+      //
+
+      Err(LangError::Expected {
+        expr: "closing parenthesis `)`, found reserved keyword",
+        span: rpar.span,
+      })
+    }
+  }
+
   fn parenthesis(&mut self) -> Result<Expr, LangError> {
     self.next()?;
     let expr = self.expr(0)?;
@@ -62,7 +89,7 @@ impl<'a> Parser<'a> {
       //
 
       Err(LangError::Expected {
-        expr: "closing parenthesis `)`, found expression",
+        expr: "closing parenthesis `)`, found reserved keyword",
         span: rpar.span,
       })
     }
@@ -81,11 +108,19 @@ impl<'a> Parser<'a> {
       Some(TokenKind::Symbol(sym)) => {
         let sym = sym.to_string();
         self.next()?;
-        Ok(Expr::Sym(Symbol::new(
-          //.
-          &sym,
-          Set::SR,
-        )))
+
+        if let Some(TokenKind::LPar) = self.peek() {
+          self.function(
+            //.
+            &sym,
+          )
+        } else {
+          Ok(Expr::Sym(Symbol::new(
+            //.
+            &sym,
+            Set::SR,
+          )))
+        }
       }
 
       Some(TokenKind::Keyword(kw)) => {

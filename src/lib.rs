@@ -31,6 +31,9 @@ pub mod base;
 #[cfg(feature = "cycle_lang")]
 pub mod lang;
 
+#[cfg(feature = "cycle_plot")]
+pub mod plot;
+
 #[doc(inline)]
 pub use crate::base::ring::{self, Constant, Form, Integer, Number, Rational, Set, SymbolicResult};
 pub use crate::base::{Expr, Symbol};

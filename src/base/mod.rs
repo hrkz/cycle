@@ -1,4 +1,5 @@
 pub mod alg;
+pub mod rel;
 pub mod ring;
 
 use std::cmp::Ordering;
@@ -8,6 +9,7 @@ use std::ops;
 use std::sync::Arc;
 
 use alg::{Algebra, Assoc};
+use rel::{Function, Special};
 use ring::{Constant, Number, Set, SymbolicResult};
 
 #[derive(Debug, Clone, Hash, PartialEq, PartialOrd, Eq, Ord)]
@@ -66,6 +68,8 @@ pub enum Expr {
 
   /// Algebraic operation
   Alg(Algebra),
+  /// Functional operation (elementary, special)
+  Rel(Function),
   // Calculus operation (limit, derivative, integral)
   //Cal(Calculus),
   // Sequence operation (sum, product)
@@ -84,6 +88,7 @@ impl Expr {
       | Expr::Cte => |_| Ok(self),
         Expr::Num => |n| Ok(Expr::Num(n.trivial()?)),
         Expr::Alg
+      | Expr::Rel
     //| Expr::Cal
     //| Expr::Sq
         => |e| {
@@ -99,6 +104,7 @@ impl Expr {
     | Expr::Sym(_) => 1,
       Expr::Num(n) => n.len(),
       Expr::Alg(_)
+    | Expr::Rel(_)
   //| Expr::Cal(_)
   //| Expr::Sq(_)
       => {
@@ -115,6 +121,7 @@ impl Expr {
       Expr::Sym(s) => s.dom.clone(),
       Expr::Num(n) => n.dom(),
       Expr::Alg(_)
+    | Expr::Rel(_)
   //| Expr::Cal(_)
   //| Expr::Sq(_)
       => {
@@ -135,6 +142,7 @@ impl Expr {
     | Expr::Sym(_)
     | Expr::Num(_) => true,
       Expr::Alg(_)
+    | Expr::Rel(_)
   //| Expr::Cal(_)
   //| Expr::Sq(_)
       => {
@@ -156,6 +164,7 @@ impl Expr {
       self, {
         Expr::Sym | Expr::Cte | Expr::Num => |_| s.clone(),
         Expr::Alg
+      | Expr::Rel
     //| Expr::Cal
     //| Expr::Sq
         => |e| {
@@ -169,6 +178,7 @@ impl Expr {
     match self {
       Expr::Sym(_) | Expr::Cte(_) | Expr::Num(_) => true,
       Expr::Alg(_)
+    | Expr::Rel(_)
   //| Expr::Cal(_)
   //| Expr::Sq(_)
       => {
@@ -180,6 +190,7 @@ impl Expr {
   fn ord(&self) -> u64 {
     match self {
       Expr::Sym(_) | Expr::Cte(_) => 0,
+      Expr::Rel(_) => 5,
 
       Expr::Num(n) => n.len(),
       Expr::Alg(a) => {
@@ -322,6 +333,26 @@ impl<'e> Iter<'e> {
         }
       }
 
+      Expr::Rel(fun) => {
+        match fun {
+          Function::MapExpr {
+            // n
+            name: _,
+            arg,
+          } => {
+            //.
+            arg.iter().fold(init, |acc, e| f(acc, e))
+          }
+
+          Function::SpeExpr(
+            // n
+            map,
+          ) => match map {
+            Special::Comp(lhs, rhs) => f(f(init, lhs.as_ref()), rhs.as_ref()),
+          },
+        }
+      }
+
       atom => {
         //.
         f(init, atom)
@@ -385,6 +416,7 @@ impl fmt::Display for Expr {
       | Expr::Cte
       | Expr::Num
       | Expr::Alg
+      | Expr::Rel
     //| Expr::Cal
     //| Expr::Sq
         => |e| {

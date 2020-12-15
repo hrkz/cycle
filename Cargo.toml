@@ -29,5 +29,6 @@ doc = false
 [workspace]
 members = [
   "cycle-eval",
-  "cycle-num"
+  "cycle-num",
+  "cycle-play",
 ]

@@ -218,24 +218,5 @@ pub enum Constant {
 }
 
 impl fmt::Display for Constant {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    match self {
-      Constant::Infinity => {
-        write!(f, "∞") //.
-      }
-
-      Constant::Pi => write!(f, "[π]"),
-      Constant::E => write!(f, "[e]"),
-      Constant::GoldenRatio => write!(f, "[φ]"),
-      Constant::Catalan => write!(f, "[G]"),
-      Constant::EulerGamma => write!(f, "[γ]"),
-      Constant::Khinchin => write!(f, "[K]"),
-      Constant::Glaisher => write!(f, "[A]"),
-      Constant::Apery => write!(f, "[ζ3]"),
-
-      Constant::I => {
-        write!(f, "[i]") //.
-      }
-    }
-  }
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { write!(f, "[{:?}]", self) }
 }

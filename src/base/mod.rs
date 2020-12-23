@@ -2,6 +2,9 @@ pub mod alg;
 pub mod rel;
 pub mod ring;
 
+pub mod array;
+pub mod graph;
+
 use std::cmp::Ordering;
 use std::fmt;
 use std::iter;

@@ -8,27 +8,38 @@ jobs:
 
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macOS-latest]
+        os: 
+          - ubuntu-latest
+          - windows-latest
+          - macOS-latest
+        toolchain:
+          - nightly
 
     steps:
       - uses: actions/checkout@v2
 
-      - uses: actions-rs/toolchain@v1
+      - name: Installing
+        uses: actions-rs/toolchain@v1
         with:
+          toolchain: ${{ matrix.toolchain }}
           profile: minimal
-          toolchain: nightly
           override: true
           components: rustfmt
 
-      - uses: actions-rs/cargo@v1
+      - name: Building
+        uses: actions-rs/cargo@v1
         with:
           command: build
+          args: --workspace
 
-      - uses: actions-rs/cargo@v1
+      - name: Testing
+        uses: actions-rs/cargo@v1
         with:
           command: test
+          args: --workspace
 
-      - uses: actions-rs/cargo@v1
+      - name: Formatting
+        uses: actions-rs/cargo@v1
         with:
           command: fmt
-          args: --all -- --check
+          args: -- --check

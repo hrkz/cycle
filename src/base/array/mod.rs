@@ -117,7 +117,6 @@ where
       fmt.write_str("[")?;
       format_array_inner(fmt, arr.shape()[0], cnt, &dim_sep, ell, &mut |fmt, idx| {
         format_array(
-          //.
           &arr.slice(&[Slice::one(idx)]),
           fmt,
           sep,
@@ -125,6 +124,7 @@ where
           cnt,
           depth + 1,
           fmt_elem,
+          //.
         )
       })?;
       fmt.write_str("]")?;
@@ -140,7 +140,7 @@ where
   S: Data<Elem = T>,
   D: Dims,
 {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { format_array(self, f, " ", "...", 5, 0, &mut |f, elem| write!(f, "{:.p$}", elem, p = f.precision().unwrap_or(3))) }
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { format_array(self, f, ", ", "...", 5, 0, &mut |f, elem| write!(f, "{:.p$}", elem, p = f.precision().unwrap_or(3))) }
 }
 
 impl<T: Clone> Array<T> {

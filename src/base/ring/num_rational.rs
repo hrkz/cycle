@@ -61,8 +61,7 @@ impl Domain for Rational {
     let cb = c * b;
 
     Self::new(
-      //.
-      Integer::gcd(&ad, &cb),
+      Integer::gcd(&ad, &cb), //.
       b * d,
     )
   }
@@ -73,8 +72,7 @@ impl Domain for Rational {
     let (b, d) = (u.den, v.den);
 
     Self::new(
-      //.
-      Integer::lcm(&a, &c),
+      Integer::lcm(&a, &c), //.
       Integer::gcd(&b, &d),
     )
   }
@@ -139,8 +137,7 @@ impl Add for Rational {
 
     let lcm = Integer::lcm(&b, &d);
     Rational::new(
-      //.
-      a * lcm / b + c * lcm / d,
+      a * lcm / b + c * lcm / d, //.
       lcm,
     )
   }
@@ -156,8 +153,7 @@ impl Sub for Rational {
 
     let lcm = Integer::lcm(&b, &d);
     Rational::new(
-      //.
-      lcm / b * a - lcm / d * c,
+      lcm / b * a - lcm / d * c, //.
       lcm,
     )
   }
@@ -175,8 +171,7 @@ impl Mul for Rational {
     let gcd_bc = Integer::gcd(&b, &c);
 
     Rational::new(
-      //.
-      a / gcd_ad * c / gcd_bc,
+      a / gcd_ad * c / gcd_bc, //.
       d / gcd_ad * b / gcd_bc,
     )
   }
@@ -194,8 +189,7 @@ impl Div for Rational {
     let gcd_bd = Integer::gcd(&b, &d);
 
     Rational::new(
-      //.
-      a / gcd_ac * d / gcd_bd,
+      a / gcd_ac * d / gcd_bd, //.
       c / gcd_ac * b / gcd_bd,
     )
   }
@@ -212,7 +206,7 @@ mod tests {
   use super::*;
 
   #[test]
-  fn domain() {
+  fn dom() {
     let r1_2 = Rational::new(1, 2);
     let r2_1 = Rational::new(2, 1);
     let r2_5 = Rational::new(2, 5);
@@ -287,7 +281,4 @@ mod tests {
     assert_eq!(r3_7 / r1_2, r3_7 * Rational::new(r1_2.den, r1_2.num));
     assert_eq!(r3_7 / r9_4, r3_7 * Rational::new(r9_4.den, r9_4.num));
   }
-
-  #[test]
-  fn decompose() {}
 }

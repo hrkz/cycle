@@ -2,7 +2,7 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 
 pub trait Domain
   : Clone
-  //. ops
+  // ops
   + Add<Output = Self>
   + Sub<Output = Self>
   + Mul<Output = Self>

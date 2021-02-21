@@ -90,7 +90,10 @@ impl Number {
           return Err(Form {});
         }
 
-        let g = Integer::gcd(&q.num(), &q.den());
+        let g = Integer::gcd(
+          &q.num(), //.
+          &q.den(),
+        );
 
         let num = q.num() / g * q.den().signum();
         let den = q.den() / g * q.den().signum();
@@ -103,8 +106,7 @@ impl Number {
       }
 
       _ => {
-        //.
-        Ok(self)
+        Ok(self) //.
       }
     }
   }
@@ -171,9 +173,9 @@ impl fmt::Display for Number {
 
       Number::Q(q) => {
         write!(
+          //.
           f,
           "{}/{}",
-          // signs
           q.num(),
           q.den()
         )
@@ -182,7 +184,7 @@ impl fmt::Display for Number {
   }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Copy)]
 /// Mathematical error
 pub struct Form {}
 
@@ -190,22 +192,21 @@ impl fmt::Display for Form {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { write!(f, "?") }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[allow(nonstandard_style)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Copy)]
 /// Special constants
 pub enum Constant {
   /// ∞ Infinity
   Infinity,
 
-  /// \[π] Pi, Archimede's constant
-  Pi,
-  /// \[e] Euler's number
-  E,
+  /// \[π] pi, Archimede's constant
+  pi,
   /// \[φ] Golden ratio
   GoldenRatio,
   /// \[G] Catalan's constant
   Catalan,
   /// \[γ] Euler-Mascheroni constant
-  EulerGamma,
+  Euler,
   /// \[K] Khinchin's constant
   Khinchin,
   /// \[A] Glaisher's constant
@@ -218,5 +219,5 @@ pub enum Constant {
 }
 
 impl fmt::Display for Constant {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { write!(f, "[{:?}]", self) }
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { write!(f, "{:?}", self) }
 }

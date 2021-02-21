@@ -3,16 +3,6 @@ use crate::base::ring::repr::*;
 /// Basic smallest domain, ℤ
 pub type Integer = i128;
 
-trait Arithmetic {
-  fn is_multiple_of(&self) -> bool;
-  fn is_prime(&self) -> bool;
-  fn is_perfect(&self) -> bool;
-  fn is_palindrome(&self) -> bool;
-
-  fn primes(&self) -> &[Integer];
-  fn factors(&self) -> &[Integer];
-}
-
 impl Domain for Integer {
   fn name(&self) -> String { String::from("ℤ") }
 
@@ -29,10 +19,8 @@ impl Domain for Integer {
 
       (u, v) => {
         let s = (u | v).trailing_zeros();
-
         let mut u = u;
         let mut v = v;
-
         u >>= u.trailing_zeros();
 
         while v != 0 {
@@ -72,7 +60,7 @@ mod tests {
   use super::*;
 
   #[test]
-  fn domain() {
+  fn dom() {
     // trivial path: u, v = 0
     assert_eq!(Domain::gcd(&5, &0), 5);
     assert_eq!(Domain::lcm(&5, &0), 0);
@@ -112,13 +100,4 @@ mod tests {
     // ```lcm(u, v)*gcd(u, v) = u*v```
     assert_eq!(Domain::lcm(&u0, &v0) * Domain::gcd(&u0, &v0), u0 * v0);
   }
-
-  #[test]
-  fn properties() {}
-
-  #[test]
-  fn prime() {}
-
-  #[test]
-  fn factor() {}
 }

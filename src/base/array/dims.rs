@@ -52,8 +52,8 @@ impl Dense {
   pub fn new(shape: &[usize]) -> Dense {
     let mut loc: Vec<_> = iter::once(1)
       .chain(
-        shape
-          .iter() //.
+        shape //.
+          .iter()
           .rev()
           .take(shape.len() - 1)
           .scan(1, |s, &d| {
@@ -92,8 +92,7 @@ impl Dims for Dense {
     let (dim, loc) = select
       .iter()
       .chain(iter::repeat(
-        //.
-        &Slice::all(),
+        &Slice::all(), //.
       ))
       .zip(self.loc.iter().zip(self.dim.iter()))
       .map(|(idx, (l, s))| {

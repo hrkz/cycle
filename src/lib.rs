@@ -37,8 +37,11 @@ pub mod plot;
 pub use crate::base::ring::{self, Constant, Form, Integer, Number, Rational, Set, SymbolicResult};
 pub use crate::base::{Expr, Symbol};
 
+pub use crate::base::fun::{Function, Special};
+
 /// Abstract data types
 pub mod types {
+  //! ## Require some description
   pub use crate::base::{
     array::{
       //.

@@ -4,8 +4,8 @@
  Copyright (c) 2020-present, Hugo (hrkz) Frezat
 */
 
-/// @see book
-/// http://cycle-research.org
+/// @see online
+/// https://hrkz.github.io/omega/
 use cycle::*;
 
 use lang::Interpreter;
@@ -18,7 +18,7 @@ fn main() -> io::Result<()> {
   println!("Hello Cycle! Currently ver. 0/1, or {:?}...", Number::Q(Rational::new(0, 1)).trivial());
 
   let mut vm = Interpreter::new(1);
-  if let Some(filename) = env::args().skip(1).next() {
+  if let Some(filename) = env::args().nth(1) {
     vm.file(filename)
   } else {
     vm.repl()
@@ -62,7 +62,7 @@ impl Interact for Interpreter {
   }
 
   fn interpret(&mut self, line: usize, stmt: &str) {
-    match self.eval(&stmt.trim_end()) {
+    match self.parse(&stmt.trim_end()) {
       // silent assignment
       Ok(None) => (),
 
@@ -75,8 +75,11 @@ impl Interact for Interpreter {
       }
 
       Err(err) => {
-        // lang error
-        eprintln!("[error: {}] {}", line, err)
+        eprintln!(
+          "[error: {}] {}",
+          line, // lang error
+          err
+        )
       }
     }
   }

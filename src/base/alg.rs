@@ -69,8 +69,7 @@ impl Algebra {
 
           // ```0^y = 0, y ∈ ℚ > 0```
           (Expr::ZERO, Expr::Num(rhs)) => {
-            if rhs
-              //.
+            if rhs //.
               .num()
               .is_negative()
             {
@@ -83,15 +82,14 @@ impl Algebra {
           // ```(b^e)^p = b^(e*p), p ∈ ℤ```
           (Expr::Alg(Algebra::BExpr { map: BOp::Pow, arg: (b, e) }), p) if p.dom().le(&Set::Z) => b.pow(e.mul(p).trivial()?).trivial(),
 
-          // ```(x_1 * x_2 * ... * x_n)^p = x_1^p * x_2^p * ... * x_n^p, p ∈ ℤ```
+          // ```(x_1*x_2*...*x_n)^p = x_1^p*x_2^p*...*x_n^p, p ∈ ℤ```
           (Expr::Alg(Algebra::AssocExpr(Assoc { map: AOp::Mul, arg })), Expr::Num(p)) if p.dom().le(&Set::Z) => {
             let prod = arg.into_iter().map(|sub| sub.pow(Expr::Num(p.clone()))).collect();
             Expr::assoc(AOp::Mul, prod).trivial()
           }
 
           (lhs, rhs) => {
-            //.
-            Ok(lhs.pow(rhs))
+            Ok(lhs.pow(rhs)) //.
           }
         }
       }
@@ -99,9 +97,9 @@ impl Algebra {
       Algebra::AssocExpr(expr) => {
         Ok(
           expr //.
-            .assoc()?
+            .flatten()?
             .trivial()?
-            .id(),
+            .arity(),
         )
       }
     }
@@ -253,24 +251,23 @@ impl fmt::Display for Algebra {
 }
 
 impl Assoc {
-  fn assoc(mut self) -> SymbolicResult<Assoc> {
+  fn flatten(mut self) -> SymbolicResult<Assoc> {
     let mut arg = Vec::new();
 
     while let Some(expr) = self.arg.pop() {
       match expr.trivial()? {
         Expr::Alg(Algebra::AssocExpr(Assoc {
           //.
-          map: sub_map,
-          arg: sub_arg,
+          map: smap,
+          arg: sarg,
         }))
-          if self.map == sub_map =>
+          if self.map == smap =>
         {
-          sub_arg.into_iter().for_each(|x| self.arg.push(x))
+          sarg.into_iter().for_each(|x| self.arg.push(x))
         }
 
         a => {
-          //.
-          arg.push(a)
+          arg.push(a) //.
         }
       }
     }
@@ -280,6 +277,20 @@ impl Assoc {
       map: self.map,
       arg,
     })
+  }
+
+  fn arity(mut self) -> Expr {
+    match self.arg.len() {
+      0 => self.id(),
+      1 => self.arg.swap_remove(0),
+
+      _ => {
+        Expr::assoc(
+          self.map, //.
+          self.arg,
+        )
+      }
+    }
   }
 
   fn trivial(mut self) -> SymbolicResult<Assoc> {
@@ -318,25 +329,30 @@ impl Assoc {
             self.arg.push(Expr::assoc(AOp::Add, sum).trivial()?)
           }
 
-          (map, lhs, rhs) => {
-            let (lhs_base, lhs_coeff) = self.distrib(&lhs)?;
-            let (rhs_base, rhs_coeff) = self.distrib(&rhs)?;
+          (_, lhs, rhs) => {
+            let (lhs_base, lhs_coeff) = self.split(lhs)?;
+            let (rhs_base, rhs_coeff) = self.split(rhs)?;
 
-            if lhs_base == rhs_base {
+            let factor = if lhs_base == rhs_base {
+              // ```c*x + d*x = (c + d)*x, {c, d} ∈ ℚ``` or
+              // ```x^c * x^d = x^(c + d)```
               let coeff = lhs_coeff.add(rhs_coeff).trivial()?;
-              let factor = match map {
-                // ```c*x + d*x = (c + d)*x```
-                AOp::Add => rhs_base.mul(coeff).trivial()?,
-                // ```x^c * x^d = x^(c + d)```
-                AOp::Mul => rhs_base.pow(coeff).trivial()?,
-              };
+              self.merge(lhs_base, coeff).trivial()?
+            } else {
+              arg.push(self.merge(
+                lhs_base, //.
+                lhs_coeff,
+              ));
+              self.merge(
+                rhs_base, //.
+                rhs_coeff,
+              )
+            };
 
+            if factor != self.id() {
               self.arg.push(
                 factor, //.
               )
-            } else {
-              arg.push(lhs);
-              self.arg.push(rhs)
             }
           }
         },
@@ -350,31 +366,13 @@ impl Assoc {
     })
   }
 
-  fn id(mut self) -> Expr {
+  fn split(&self, expr: Expr) -> SymbolicResult<(Expr, Expr)> {
+    // Splitting
+    // [`split`](x) = (b, c)
+    // [`split`](x) = [`split`]([`merge`](b, c)) = (b, c)
     match (
-      self.map, //.
-      self.arg.len(),
-    ) {
-      // ```Id(+) = 0```
-      (AOp::Add, 0) => Expr::ZERO,
-      // ```Id(*) = 1```
-      (AOp::Mul, 0) => Expr::ONE,
-
-      (_, 1) => self.arg.swap_remove(0),
-
-      _ => {
-        Expr::assoc(
-          self.map, //.
-          self.arg,
-        )
-      }
-    }
-  }
-
-  fn distrib(&self, expr: &Expr) -> SymbolicResult<(Expr, Expr)> {
-    match (
-      self.map, //.
-      expr,
+      //.
+      self.map, &expr,
     ) {
       (
         AOp::Add,
@@ -384,9 +382,11 @@ impl Assoc {
           arg,
         })),
       ) => {
-        // ```c*t```
-        if let Some((c @ Expr::Num(_), t)) = arg.split_first() {
-          return Ok((Expr::assoc(AOp::Mul, t.to_vec()).trivial()?, c.clone()));
+        if let Some((c @ Expr::Num(_), b)) = arg.split_first() {
+          return Ok((
+            Expr::assoc(AOp::Mul, b.to_vec()).trivial()?, // ```c*b```
+            c.clone(),
+          ));
         }
       }
 
@@ -395,12 +395,12 @@ impl Assoc {
         Expr::Alg(Algebra::BExpr {
           //.
           map: BOp::Pow,
-          arg: (b, e),
+          arg: (b, c),
         }),
       ) => {
         return Ok((
-          *b.clone(), // ```b^e```
-          *e.clone(),
+          *b.clone(), // ```b^c```
+          *c.clone(),
         ));
       }
 
@@ -411,9 +411,39 @@ impl Assoc {
     }
 
     Ok((
-      expr.clone(), // ```x```
+      expr, // ```b```
       Expr::ONE,
     ))
+  }
+
+  fn merge(&self, base: Expr, coeff: Expr) -> Expr {
+    // Merging
+    // [`merge`](b, c) = x
+    // [`merge`](b, c) = [`merge`]([`split`](x)) = x
+    if !coeff.eq(&Expr::ONE) {
+      match self.map {
+        // ```c*b```
+        AOp::Add => coeff.mul(base),
+        // ```b^c```
+        AOp::Mul => base.pow(coeff),
+      }
+    } else {
+      // ```1*b = b``` or
+      // ```b^1 = b```
+      base
+    }
+  }
+
+  const fn id(&self) -> Expr {
+    // Identity element
+    // (S, ∘), ∃e, e ∘ a = a ∘ e = a ∀a ∈ S
+    // [Semigroup](https://en.wikipedia.org/wiki/Semigroup)
+    match self.map {
+      // ```Id(+) = 0```
+      AOp::Add => Expr::ZERO,
+      // ```Id(*) = 1```
+      AOp::Mul => Expr::ONE,
+    }
   }
 }
 
@@ -433,7 +463,19 @@ impl Expr {
     })
   }
 
-  pub fn r#assoc(map: AOp, arg: Vec<Expr>) -> Self {
+  /// ```b√a```
+  pub fn r#root(
+    //.
+    self,
+    o: Self,
+  ) -> Self {
+    self.pow(Expr::ONE / o)
+  }
+
+  /// ```√a```
+  pub fn r#sqrt(self) -> Self { self.pow(Expr::HALF) }
+
+  fn r#assoc(map: AOp, arg: Vec<Expr>) -> Self {
     Self::Alg(Algebra::AssocExpr(Assoc {
       //.
       map,

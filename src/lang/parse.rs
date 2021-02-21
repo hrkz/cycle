@@ -10,9 +10,8 @@ use std::iter::Peekable;
 /// <Primary> ::=
 ///    Number
 ///  | Symbol
-///  | Keyword
-///  | Symbol "(" <Expr> ")"
-///  | Keyword "[" <Expr> "]" ...
+///  | <Keyword>
+///  | <Function>
 ///  | "(" <Expr> ")"
 ///  | "+" <Expr>
 ///  | "-" <Expr>
@@ -48,6 +47,16 @@ impl<'a> Parser<'a> {
   fn keyword(&mut self, _keyword: TokenKeyword) -> Result<Expr, LangError> { unimplemented!() }
 
   fn function(&mut self, name: &str) -> Result<Expr, LangError> {
+    //
+    // <Function> ::=
+    //    Symbol "(" <Args>
+    //
+    // <Args> ::=
+    //    <Expr> <Args>
+    //  | "," <Args>
+    //  | ")"
+    //
+
     self.next()?;
     let expr = self.expr(0)?;
     let mut arg = vec![expr];
@@ -99,10 +108,7 @@ impl<'a> Parser<'a> {
     match self.peek() {
       Some(TokenKind::Number(num)) => {
         self.next()?;
-        Ok(Expr::Num(Number::Z(
-          //.
-          num.into(),
-        )))
+        Ok(Expr::Num(Number::Z(num.into())))
       }
 
       Some(TokenKind::Symbol(sym)) => {
@@ -110,27 +116,18 @@ impl<'a> Parser<'a> {
         self.next()?;
 
         if let Some(TokenKind::LPar) = self.peek() {
-          self.function(
-            //.
-            &sym,
-          )
+          self.function(&sym)
         } else {
-          Ok(Expr::Sym(Symbol::new(
-            //.
-            &sym,
-            Set::SR,
-          )))
+          Ok(Expr::Sym(Symbol::new(&sym, Set::SR)))
         }
       }
 
       Some(TokenKind::Keyword(kw)) => {
-        //.
-        self.keyword(kw)
+        self.keyword(kw) //.
       }
 
       Some(TokenKind::LPar) => {
-        //.
-        self.parenthesis()
+        self.parenthesis() //.
       }
 
       Some(token) => {
@@ -157,8 +154,7 @@ impl<'a> Parser<'a> {
       }
 
       _ => {
-        //.
-        self.next().and(Err(LangError::End))
+        self.next().and(Err(LangError::End)) //.
       }
     }
   }
@@ -213,13 +209,11 @@ impl<'a> Parser<'a> {
             self.next()?;
             match expr {
               Op::Infix(ref i) => {
-                //.
-                lhs = i.eval(lhs, self.expr(expr.right_pred())?);
+                lhs = i.eval(lhs, self.expr(expr.right_pred())?); //.
               }
 
               Op::Postfix(p) => {
-                //.
-                lhs = p.eval(lhs);
+                lhs = p.eval(lhs); //.
               }
             }
           }
@@ -234,12 +228,39 @@ impl<'a> Parser<'a> {
     //
     // <Root> ::=
     //    <Expr> ":=" <Expr>
+    //  | <Expr>  "=" <Expr>
     //  | <Expr>
     //
 
     let lhs = self.expr(0)?;
 
     match self.advance()? {
+      Some(Token {
+        //.
+        span: _,
+        kind: TokenKind::Rule,
+      }) => {
+        let rhs = self.expr(0)?;
+
+        if let Some(token) = self.advance()? {
+          //
+          // hints
+          //
+          // <Empty> \in []
+          //
+
+          Err(LangError::Expected {
+            expr: "end of statement, found remaining token(s)",
+            span: token.span,
+          })
+        } else {
+          Ok(Ast::Rule(
+            lhs, //.
+            rhs,
+          ))
+        }
+      }
+
       Some(Token {
         //.
         span: _,
@@ -259,9 +280,9 @@ impl<'a> Parser<'a> {
             span: token.span,
           })
         } else {
-          Ok(Ast::Define(
-            //.
-            lhs, rhs,
+          Ok(Ast::Def(
+            lhs, //.
+            rhs,
           ))
         }
       }
@@ -270,19 +291,18 @@ impl<'a> Parser<'a> {
         //
         // hints
         //
-        // <Expr> \in [TokenKind::Def]
+        // <Expr> \in [TokenKind::Rule, TokenKind::Def]
         // <Empty>
         //
 
         Err(LangError::Expected {
-          expr: "`:=` or end of statement, found non-root expression",
+          expr: "`:=`, `=` or end of statement, found non-root expression",
           span: token.span,
         })
       }
 
       None => {
-        //.
-        Ok(Ast::Expr(lhs))
+        Ok(Ast::Expr(lhs)) //.
       }
     }
   }
@@ -326,7 +346,6 @@ impl Primary {
       TokenKind::Add => {
         Some(Primary::Pos) // +x
       }
-
       TokenKind::Sub => {
         Some(Primary::Neg) // -x
       }
@@ -349,9 +368,10 @@ impl Primary {
     &self,
     rhs: Expr,
   ) -> Expr {
-    match self {
-      Primary::Pos => rhs,
-      Primary::Neg => -rhs,
+    match (self, rhs) {
+      (Primary::Pos, e) => e,
+      (Primary::Neg, Expr::Num(Number::Z(z))) => Expr::Num(Number::Z(-z)),
+      (Primary::Neg, e) => -e,
     }
   }
 }
@@ -413,23 +433,18 @@ impl Op {
       TokenKind::Add => {
         Some(Op::Infix(Infix::Add)) // x + y
       }
-
       TokenKind::Sub => {
         Some(Op::Infix(Infix::Sub)) // x - y
       }
-
       TokenKind::Mul => {
         Some(Op::Infix(Infix::Mul)) // x*y
       }
-
       TokenKind::Div => {
         Some(Op::Infix(Infix::Div)) // x/y
       }
-
       TokenKind::Pow => {
         Some(Op::Infix(Infix::Pow)) // x^y
       }
-
       TokenKind::Fact => {
         Some(Op::Postfix(Postfix::Fact)) // x!
       }

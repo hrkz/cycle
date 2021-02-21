@@ -4,29 +4,29 @@ use crate::lang::{LangError, Span};
 pub enum TokenKind<'a> {
   Symbol(&'a str),
   Number(u64),
-  // arithmetic
-  Eq,
+  // Arithmetic
   Add,
   Sub,
   Mul,
   Div,
   Pow,
   Fact,
-  // reserved
+  // Reserved
   LPar,
   RPar,
   LSqr,
   RSqr,
   Comma,
+  Rule,
   Def,
-  // lang
+  // Lang
   Keyword(TokenKeyword),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TokenKeyword {
   Interval,
-  // operators
+  // Operators
   Derivative,
   Integral,
   Sum,
@@ -85,21 +85,22 @@ impl<'a> Lexer<'a> {
     if start != end {
       Ok((&self.src[start..end], start..end))
     } else {
-      Err(LangError::Lex)
+      Err(
+        LangError::Lex, //.
+      )
     }
   }
 
   fn tok(&mut self, kind: TokenKind<'a>) -> Result<Token<'a>, LangError> {
     let start = self.cur;
-    self
+    self //.
       .advance()
-      //.
       .ok_or(LangError::Lex)?;
     let end = self.cur;
 
     Ok(Token {
-      span: start..end,
       //.
+      span: start..end,
       kind,
     })
   }
@@ -123,17 +124,12 @@ impl<'a> Lexer<'a> {
   fn symbol(&mut self) -> Result<Token<'a>, LangError> {
     let (text, span) = self.advance_while(|c| c.is_alphabetic() || c.is_ascii_digit() || c == '_')?;
 
-    let kind = match text {
-      _ => {
-        //.
-        TokenKind::Symbol(text)
-      }
-    };
-
     Ok(Token {
       span,
-      //.
-      kind,
+      kind: TokenKind::Symbol(
+        //.
+        text,
+      ),
     })
   }
 
@@ -149,7 +145,8 @@ impl<'a> Lexer<'a> {
       c == '∏')?;
 
     let kind = match text {
-      ":=" => TokenKind::Def,
+      ":=" => TokenKind::Rule,
+      "=" => TokenKind::Def,
       ";" => TokenKind::Keyword(TokenKeyword::Interval),
 
       "∂" => TokenKind::Keyword(TokenKeyword::Derivative),
@@ -158,14 +155,13 @@ impl<'a> Lexer<'a> {
       "∏" => TokenKind::Keyword(TokenKeyword::Prod),
 
       _ => {
-        //.
-        return Err(LangError::Lex);
+        return Err(LangError::Lex); //.
       }
     };
 
     Ok(Token {
-      span,
       //.
+      span,
       kind,
     })
   }
@@ -177,7 +173,6 @@ impl<'a> Iterator for Lexer<'a> {
   fn next(&mut self) -> Option<Self::Item> {
     loop {
       return match self.peek()? {
-        '=' => Some(self.tok(TokenKind::Eq)),
         '+' => Some(self.tok(TokenKind::Add)),
         '-' => Some(self.tok(TokenKind::Sub)),
         '*' => Some(self.tok(TokenKind::Mul)),
@@ -191,13 +186,8 @@ impl<'a> Iterator for Lexer<'a> {
         ']' => Some(self.tok(TokenKind::RSqr)),
         ',' => Some(self.tok(TokenKind::Comma)),
 
-        n if n.is_ascii_digit() => {
-          Some(self.number()) //.
-        }
-
-        s if s.is_alphabetic() => {
-          Some(self.symbol()) //.
-        }
+        num if num.is_ascii_digit() => Some(self.number()),
+        sym if sym.is_alphabetic() => Some(self.symbol()),
 
         c => {
           if c.is_whitespace() {
@@ -205,8 +195,7 @@ impl<'a> Iterator for Lexer<'a> {
             continue;
           } else {
             Some(
-              //.
-              self.reserved(),
+              self.reserved(), //.
             )
           }
         }

@@ -197,7 +197,7 @@ impl fmt::Display for Form {
 /// Special constants
 pub enum Constant {
   /// ∞ Infinity
-  Infinity,
+  oo,
 
   /// \[π] pi, Archimede's constant
   pi,

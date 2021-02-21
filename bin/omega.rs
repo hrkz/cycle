@@ -1,5 +1,5 @@
 /*
- Cycle v0.1.1
+ Cycle v0.2.0
  [Omega]
  Copyright (c) 2020-present, Hugo (hrkz) Frezat
 */
@@ -15,7 +15,7 @@ use std::fs;
 use std::io::{self, stdin, stdout, Write};
 
 fn main() -> io::Result<()> {
-  println!("Cycle 0.1.1 :: Omega, feb 21 2021");
+  println!("Cycle 0.2.0 :: Omega, feb 21 2021");
 
   let mut vm = Interpreter::new(1);
 

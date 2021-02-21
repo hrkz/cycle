@@ -16,7 +16,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! cycle = "0.1.1"
+//! cycle = "0.2.0"
 //! ```
 //!
 //! ## Wiki

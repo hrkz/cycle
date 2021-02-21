@@ -41,9 +41,9 @@ $ cargo run # Run the interpreter (optional)
 or with the crate
 ```toml
 [dependencies]
-cycle = "0.1.1"
+cycle = "0.2.0"
 ```
 
 | Plans |       |
 | :----:| :----:|
-| :book: [book](https://github.com/hrkz/cycle/wiki/) \| [docs](https://docs.rs/cycle/0.1.1/cycle/) | To get started with the library, learn the basics through the book, reference documentation and examples |
+| :book: [book](https://github.com/hrkz/cycle/wiki/) \| [docs](https://docs.rs/cycle/0.2.0/cycle/) | To get started with the library, learn the basics through the book, reference documentation and examples |

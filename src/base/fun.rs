@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::{Constant, Expr, Number, SymbolicResult};
+use crate::{Constant, Expr, Form, Number, SymbolicResult};
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Copy)]
 pub enum ElemOp {
@@ -87,6 +87,8 @@ impl Function {
             ord,
           }) => {
             match (arg, map, fig, ord) {
+              (Expr::Cte(Constant::Infinity(0)), _, _, _) => Err(Form {}),
+
               // ```sin(0) = sinh(0) = 0```
               (Expr::ZERO, CartOp::Sin, _, true) => Ok(Expr::ZERO),
               // ```cos(0) = cosh(0) = 1```
@@ -111,14 +113,14 @@ impl Function {
               // ```ar{}(0)h = arc{}(0)*I```
               (Expr::ZERO, map, FigOp::Hyp, false) => (Expr::ZERO.cart(map, FigOp::Cir, false) * Expr::Cte(Constant::I)).trivial(),
 
-              // ```arctan(∞) = π/2```
-              (Expr::Cte(Constant::oo), CartOp::Tan, FigOp::Cir, false) => (Expr::Cte(Constant::pi) * Expr::HALF).trivial(),
-              // ```actanh(∞) = π*I/2```
-              (Expr::Cte(Constant::oo), CartOp::Tan, FigOp::Hyp, false) => (Expr::Cte(Constant::pi) * Expr::Cte(Constant::I) * Expr::HALF).trivial(),
-              // ```tanh(∞) = 1```
-              (Expr::Cte(Constant::oo), CartOp::Tan, FigOp::Hyp, true) => Ok(Expr::ONE),
-              // ```cosh(∞) = sinh(∞) = arcosh(∞) = arsinh(∞) = ∞```
-              (Expr::Cte(Constant::oo), _, FigOp::Hyp, _) => Ok(Expr::Cte(Constant::oo)),
+              // ```arctan(_∞) = sgn(_)*π/2```
+              (Expr::Cte(Constant::Infinity(z)), CartOp::Tan, FigOp::Cir, false) => (Expr::Num(Number::Z(z)) * Expr::Cte(Constant::pi) * Expr::HALF).trivial(),
+              // ```actanh(_∞) = -sgn(_)*π*I/2```
+              (Expr::Cte(Constant::Infinity(z)), CartOp::Tan, FigOp::Hyp, false) => (-Expr::Num(Number::Z(z)) * Expr::Cte(Constant::pi) * Expr::Cte(Constant::I) * Expr::HALF).trivial(),
+              // ```tanh(_∞) = sgn(_)```
+              (Expr::Cte(Constant::Infinity(z)), CartOp::Tan, FigOp::Hyp, true) => Ok(Expr::Num(Number::Z(z))),
+              // ```cosh(_∞) = sinh(_∞) = arcosh(_∞) = arsinh(_∞) = _∞```
+              (Expr::Cte(Constant::Infinity(z)), _, FigOp::Hyp, _) => Ok(Expr::Cte(Constant::Infinity(z))),
 
               // ```cart{}(cart{}^-1(x))```
               (Expr::Fun(Function::ElemExpr { map: ElemOp::Cart(comp), arg }), map, fig, true) if !comp.ord && comp.fig == fig => map.composition(comp.map, fig, *arg),
@@ -133,8 +135,10 @@ impl Function {
           ElemOp::Exp => match arg {
             // ```exp(0) = 1```
             Expr::ZERO => Ok(Expr::ONE),
+            // ```exp(-∞) = 0```
+            Expr::Cte(Constant::Infinity(-1)) => Ok(Expr::ZERO),
             // ```exp(∞) = ∞```
-            Expr::Cte(Constant::oo) => Ok(Expr::Cte(Constant::oo)),
+            Expr::Cte(Constant::Infinity(1)) => Ok(Expr::Cte(Constant::Infinity(1))),
 
             // ```exp(log(x)) = x```
             Expr::Fun(Function::ElemExpr {
@@ -154,8 +158,8 @@ impl Function {
           ElemOp::Log => match arg {
             // ```log(1) = 0```
             Expr::ONE => Ok(Expr::ZERO),
-            // ```log(∞) = ∞```
-            Expr::Cte(Constant::oo) => Ok(Expr::Cte(Constant::oo)),
+            // ```log(_∞) = ∞```
+            Expr::Cte(Constant::Infinity(_)) => Ok(Expr::Cte(Constant::Infinity(1))),
 
             // ```log(exp(x)) = x```
             Expr::Fun(Function::ElemExpr {

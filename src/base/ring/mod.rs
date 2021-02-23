@@ -196,8 +196,8 @@ impl fmt::Display for Form {
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Copy)]
 /// Special constants
 pub enum Constant {
-  /// ∞ Infinity
-  oo,
+  /// \[_∞] Infinity
+  Infinity(i128),
 
   /// \[π] pi, Archimede's constant
   pi,
@@ -219,5 +219,25 @@ pub enum Constant {
 }
 
 impl fmt::Display for Constant {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { write!(f, "{:?}", self) }
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    match self {
+      Constant::Infinity(z) => match z {
+        // Directed (+)
+        z if z.is_positive() => write!(f, "oo"),
+        // Directed (-)
+        z if z.is_negative() => write!(f, "-oo"),
+        // Complex (~)
+        _ => write!(f, "~oo"),
+      },
+
+      cte => {
+        write!(
+          //.
+          f,
+          "{:?}",
+          cte
+        )
+      }
+    }
+  }
 }

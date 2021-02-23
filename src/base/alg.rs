@@ -1,7 +1,7 @@
 use std::fmt;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
-use crate::{Expr, Form, Number, Set, SymbolicResult};
+use crate::{Constant, Expr, Form, Number, Set, SymbolicResult};
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Copy)]
 pub enum UOp {
@@ -58,26 +58,39 @@ impl Algebra {
         arg: (lhs, rhs),
       } => {
         match (lhs.trivial()?, rhs.trivial()?) {
-          // ```x ∈ ℚ, y ∈ ℤ```
-          (Expr::Num(lhs), Expr::Num(Number::Z(rhs))) => Ok(Expr::Num(lhs.pow(rhs)?)),
+          // ```_∞^∞ = ~∞```
+          // ```_∞^-∞ = 0```
+          // ```_∞^~∞ = ?```
+          (Expr::Cte(Constant::Infinity(_)), Expr::Cte(Constant::Infinity(1))) => Ok(Expr::Cte(Constant::Infinity(0))),
+          (Expr::Cte(Constant::Infinity(_)), Expr::Cte(Constant::Infinity(-1))) => Ok(Expr::ZERO),
+          (Expr::Cte(Constant::Infinity(_)), Expr::Cte(Constant::Infinity(0))) => Err(Form {}),
 
-          // ```1^x = x^0 = 1```
-          (Expr::ONE, _) | (_, Expr::ZERO) => Ok(Expr::ONE),
+          // ```1^_∞ = _∞^0 = ?```
+          (Expr::ONE, Expr::Cte(Constant::Infinity(_))) | (Expr::Cte(Constant::Infinity(_)), Expr::ZERO) => Err(Form {}),
+          // ```0^_∞ = 0```
+          (Expr::ZERO, Expr::Cte(Constant::Infinity(_))) => Ok(Expr::ZERO),
 
-          // ```x^1 = x```
-          (lhs, Expr::ONE) => Ok(lhs),
-
+          // ```0^0 = ?```
+          (Expr::ZERO, Expr::ZERO) => Err(Form {}),
           // ```0^y = 0, y ∈ ℚ > 0```
           (Expr::ZERO, Expr::Num(rhs)) => {
             if rhs //.
               .num()
               .is_negative()
             {
-              Err(Form {})
+              Ok(Expr::Cte(Constant::Infinity(0)))
             } else {
               Ok(Expr::ZERO)
             }
           }
+
+          // ```1^x = x^0 = 1```
+          (Expr::ONE, _) | (_, Expr::ZERO) => Ok(Expr::ONE),
+          // ```x^1 = x```
+          (lhs, Expr::ONE) => Ok(lhs),
+
+          // ```x ∈ ℚ, y ∈ ℤ```
+          (Expr::Num(lhs), Expr::Num(Number::Z(rhs))) => Ok(Expr::Num(lhs.pow(rhs)?)),
 
           // ```(b^e)^p = b^(e*p), p ∈ ℤ```
           (Expr::Alg(Algebra::BExpr { map: BOp::Pow, arg: (b, e) }), p) if p.dom().le(&Set::Z) => b.pow(e.mul(p).trivial()?).trivial(),
@@ -308,11 +321,23 @@ impl Assoc {
         }
 
         (Some(lhs), Some(rhs)) => match (self.map, lhs, rhs) {
+          (AOp::Add, Expr::Cte(Constant::Infinity(_)), Expr::Cte(Constant::Infinity(_))) => return Err(Form {}),
+          // ```0*_∞ = ?```
+          (AOp::Mul, Expr::ZERO, Expr::Cte(Constant::Infinity(_))) => return Err(Form {}),
+
           // ```0*x = 0```
           (AOp::Mul, Expr::ZERO, _) => {
             arg.resize_with(1, || Expr::ZERO);
             break;
           }
+
+          // ```x + _∞ = _∞```
+          (AOp::Add, _, Expr::Cte(Constant::Infinity(z))) | (AOp::Add, Expr::Cte(Constant::Infinity(z)), _) => self.arg.push(Expr::Cte(Constant::Infinity(z))),
+
+          // ```_a ∞*_b ∞ = sgn(_a*_b)∞```
+          (AOp::Mul, Expr::Cte(Constant::Infinity(lhs)), Expr::Cte(Constant::Infinity(rhs))) => self.arg.push(Expr::Cte(Constant::Infinity(lhs.mul(rhs)))),
+          // ```c*_∞ = sgn(c*_)∞, c ∈ ℚ```
+          (AOp::Mul, Expr::Num(lhs), Expr::Cte(Constant::Infinity(z))) => self.arg.push(Expr::Cte(Constant::Infinity(lhs.num().mul(z).signum()))),
 
           // ```x, y ∈ ℚ```
           (AOp::Add, Expr::Num(lhs), Expr::Num(rhs)) => self.arg.push(Expr::Num(lhs.add(rhs)?)),

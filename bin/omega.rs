@@ -21,7 +21,7 @@ fn main() -> io::Result<()> {
   if let Some(filename) = env::args().nth(1) {
     vm.file(filename)
   } else {
-    println!("Cycle 0.2.1 :: Omega, feb 23 2021");
+    println!("Cycle 0.2.1 :: omega");
     vm.repl()
   }
 }
@@ -145,7 +145,7 @@ impl Prelude {
     self.def(vm, "exp", |e| e.exp())?;
     self.def(vm, "log", |e| e.log())?;
 
-    vm.eval(Ast::Rule(Expr::Sym(Symbol::new("oo", Set::SR)), Expr::Cte(Constant::oo)))?;
+    vm.eval(Ast::Rule(Expr::Sym(Symbol::new("oo", Set::SR)), Expr::Cte(Constant::Infinity(1))))?;
     vm.eval(Ast::Rule(Expr::Sym(Symbol::new("pi", Set::SR)), Expr::Cte(Constant::pi)))?;
     vm.eval(Ast::Rule(Expr::Sym(Symbol::new("I", Set::SR)), Expr::Cte(Constant::I)))?;
 

@@ -1,6 +1,6 @@
 <div align="center">
 
-[![Cycle](https://raw.githubusercontent.com/hrkz/cycle/gh-pages/images/cycle_logo.png)](https://cycle-research.org)
+[![Cycle](https://raw.githubusercontent.com/hrkz/cycle/gh-pages/images/cycle_logo.png)](https://hrkz.github.io/omega/)
 
 [![Build](https://img.shields.io/github/workflow/status/hrkz/cycle/CI?style=flat-square)](https://github.com/hrkz/cycle/actions)
 [![Crate](https://img.shields.io/crates/v/cycle?style=flat-square)](https://crates.io/crates/cycle)
@@ -41,9 +41,9 @@ $ cargo run # Run the interpreter (optional)
 or with the crate
 ```toml
 [dependencies]
-cycle = "0.2.0"
+cycle = "0.2.1"
 ```
 
 | Plans |       |
 | :----:| :----:|
-| :book: [book](https://github.com/hrkz/cycle/wiki/) \| [docs](https://docs.rs/cycle/0.2.0/cycle/) | To get started with the library, learn the basics through the book, reference documentation and examples |
+| :book: [book](https://github.com/hrkz/cycle/wiki/) \| [docs](https://docs.rs/cycle/0.2.1/cycle/) | To get started with the library, learn the basics through the book, reference documentation and examples |

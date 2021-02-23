@@ -1,5 +1,5 @@
 /*
- Cycle v0.2.0
+ Cycle v0.2.1
  [Omega]
  Copyright (c) 2020-present, Hugo (hrkz) Frezat
 */
@@ -15,14 +15,13 @@ use std::fs;
 use std::io::{self, stdin, stdout, Write};
 
 fn main() -> io::Result<()> {
-  println!("Cycle 0.2.0 :: Omega, feb 21 2021");
-
   let mut vm = Interpreter::new(1);
 
-  use_prelude(&mut vm).unwrap_or_else(|err| eprintln!("failed to load cycle prelude: {}", err));
+  Prelude::new().use_into(&mut vm, true).unwrap_or_else(|err| eprintln!("failed to load cycle prelude: {}", err));
   if let Some(filename) = env::args().nth(1) {
     vm.file(filename)
   } else {
+    println!("Cycle 0.2.1 :: Omega, feb 23 2021");
     vm.repl()
   }
 }
@@ -84,49 +83,72 @@ impl Interact for Interpreter {
   }
 }
 
-macro_rules!
-gen_prelude {
-  ($vm: ident
-    => $arg0: ident
-      $($Def: tt),*
-      &
-      $($Cte: tt),*
-  ) => {
-    // Generate function definition
-    $( $vm.eval(Ast::Def(
-         Expr::map(stringify!($Def), vec!($arg0.clone())),
-         Expr::$Def($arg0.clone())
-       ))?;
-    )*
-    // Generate constant rules
-    $( $vm.eval(Ast::Rule(
-         Expr::Sym(Symbol::new(stringify!($Cte), Set::SR)),
-         Expr::Cte(Constant::$Cte)
-       ))?;
-    )*
-  }
+///
+/// Mathematical constants >
+/// oo, pi, I
+///
+/// Arithmetic functions >
+/// +, -, *, /, ^, !, sqrt
+///
+/// Elementary functions >
+/// sin, cos, tan, arcsin, arccos, arctan, sinh, cosh, tanh, arsinh, arcosh, artanh, log, exp
+///
+struct Prelude {
+  arg: Expr,
 }
 
-fn use_prelude(vm: &mut Interpreter) -> Result<(), LangError> {
-  let arg0 = Expr::Sym(Symbol::new("_0", Set::SR));
+impl Prelude {
+  fn new() -> Prelude {
+    Prelude {
+      arg: Expr::Sym(Symbol::new("_0", Set::SR)),
+    }
+  }
 
-  gen_prelude!(
-    vm => arg0
+  fn def<F>(
+    //.
+    &self,
+    vm: &mut Interpreter,
+    name: &str,
+    f: F,
+  ) -> Result<Option<Expr>, LangError>
+  where
+    F: Fn(Expr) -> Expr,
+  {
+    let _0 = self.arg.clone();
+    vm.eval(Ast::Def(Expr::map(name, vec![_0.clone()]), f(_0)))
+  }
 
-    // Trigonometric functions
-    sin, arcsin,
-    cos, arccos,
-    tan, arctan,
-    // Hyperbolic functions
-    sinh, arsinh,
-    cosh, arcosh,
-    tanh, artanh,
-    // Exponential functions
-    exp, log
-    &
-    // Mathematical constants
-    oo, pi, I
-  );
+  fn use_into(
+    //.
+    &self,
+    vm: &mut Interpreter,
+    _op: bool,
+  ) -> Result<(), LangError> {
+    self.def(vm, "sqrt", |e| e.sqrt())?;
 
-  Ok(())
+    self.def(vm, "sin", |e| e.sin())?;
+    self.def(vm, "cos", |e| e.cos())?;
+    self.def(vm, "tan", |e| e.tan())?;
+
+    self.def(vm, "arcsin", |e| e.arcsin())?;
+    self.def(vm, "arccos", |e| e.arccos())?;
+    self.def(vm, "arctan", |e| e.arctan())?;
+
+    self.def(vm, "sinh", |e| e.sinh())?;
+    self.def(vm, "cosh", |e| e.cosh())?;
+    self.def(vm, "tanh", |e| e.tanh())?;
+
+    self.def(vm, "arsinh", |e| e.arsinh())?;
+    self.def(vm, "arcosh", |e| e.arcosh())?;
+    self.def(vm, "artanh", |e| e.artanh())?;
+
+    self.def(vm, "exp", |e| e.exp())?;
+    self.def(vm, "log", |e| e.log())?;
+
+    vm.eval(Ast::Rule(Expr::Sym(Symbol::new("oo", Set::SR)), Expr::Cte(Constant::oo)))?;
+    vm.eval(Ast::Rule(Expr::Sym(Symbol::new("pi", Set::SR)), Expr::Cte(Constant::pi)))?;
+    vm.eval(Ast::Rule(Expr::Sym(Symbol::new("I", Set::SR)), Expr::Cte(Constant::I)))?;
+
+    Ok(())
+  }
 }

@@ -65,10 +65,43 @@ impl Algebra {
           (Expr::Cte(Constant::Infinity(_)), Expr::Cte(Constant::Infinity(-1))) => Ok(Expr::ZERO),
           (Expr::Cte(Constant::Infinity(_)), Expr::Cte(Constant::Infinity(0))) => Err(Form {}),
 
-          // ```1^_∞ = _∞^0 = ?```
-          (Expr::ONE, Expr::Cte(Constant::Infinity(_))) | (Expr::Cte(Constant::Infinity(_)), Expr::ZERO) => Err(Form {}),
-          // ```0^_∞ = 0```
-          (Expr::ZERO, Expr::Cte(Constant::Infinity(_))) => Ok(Expr::ZERO),
+          // ```_∞^0 = 1^_∞ = ?```
+          (Expr::Cte(Constant::Infinity(_)), Expr::ZERO) | (Expr::ONE, Expr::Cte(Constant::Infinity(_))) => Err(Form {}),
+
+          // ```_∞^y, y ∈ ℚ```
+          (Expr::Cte(Constant::Infinity(z)), Expr::Num(rhs)) => {
+            // ```_∞^y -> 0, y < 0```
+            // ```+∞^y ->  ∞, y > 0```
+            // ```-∞^y ->  ∞, y mod 2 = 0```
+            // ```-∞^y -> -∞, y mod 2 = 1```
+            let n = rhs.num();
+            Ok((n < 0).then(|| Expr::ZERO).unwrap_or(Expr::Cte(Constant::Infinity(z.pow(n.div(rhs.den()).rem_euclid(2) as u32)))))
+          }
+
+          // ```x^_∞, x ∈ ℚ```
+          (Expr::Num(lhs), Expr::Cte(Constant::Infinity(z))) => {
+            // ```x^_∞ -> 0, |x|_∞ < 0```
+            // ```x^+∞ ->  ∞, |x|+∞ > 0, x > 0```
+            // ```x^+∞ -> ~∞, |x|+∞ > 0, x < 0```
+            // ```x^-∞ ->  ∞, |x|-∞ < 0, x > 0```
+            // ```x^-∞ -> ~∞, |x|-∞ < 0, x < 0```
+            let n = (lhs.num().abs() - lhs.den()) * z;
+            Ok((n < 0).then(|| Expr::ZERO).unwrap_or(Expr::Cte(Constant::Infinity(i128::from(lhs.num() > 0)))))
+          }
+
+          // ```I^y, y ∈ ℤ```
+          (Expr::Cte(Constant::I), Expr::Num(Number::Z(rhs))) => {
+            Ok(match rhs.rem_euclid(4) {
+              // ```I^y =  1, y mod 4 = 0```
+              // ```I^y =  I, y mod 4 = 1```
+              // ```I^y = -1, y mod 4 = 2```
+              // ```I^y = -I, y mod 4 = 3```
+              0 => Expr::ONE,
+              1 => Expr::Cte(Constant::I),
+              2 => Expr::NEG_ONE,
+              _ => Expr::Cte(Constant::I).neg(),
+            })
+          }
 
           // ```0^0 = ?```
           (Expr::ZERO, Expr::ZERO) => Err(Form {}),
@@ -92,12 +125,12 @@ impl Algebra {
           // ```x ∈ ℚ, y ∈ ℤ```
           (Expr::Num(lhs), Expr::Num(Number::Z(rhs))) => Ok(Expr::Num(lhs.pow(rhs)?)),
 
-          // ```(b^e)^p = b^(e*p), p ∈ ℤ```
-          (Expr::Alg(Algebra::BExpr { map: BOp::Pow, arg: (b, e) }), p) if p.dom().le(&Set::Z) => b.pow(e.mul(p).trivial()?).trivial(),
+          // ```(b^e)^y = b^(e*y), y ∈ ℤ```
+          (Expr::Alg(Algebra::BExpr { map: BOp::Pow, arg: (b, e) }), rhs) if rhs.dom().le(&Set::Z) => b.pow(e.mul(rhs).trivial()?).trivial(),
 
-          // ```(x_1*x_2*...*x_n)^p = x_1^p*x_2^p*...*x_n^p, p ∈ ℤ```
-          (Expr::Alg(Algebra::AssocExpr(Assoc { map: AOp::Mul, arg })), Expr::Num(p)) if p.dom().le(&Set::Z) => {
-            let prod = arg.into_iter().map(|sub| sub.pow(Expr::Num(p.clone()))).collect();
+          // ```(x_1*x_2*...*x_n)^y = x_1^y*x_2^y*...*x_n^y, y ∈ ℤ```
+          (Expr::Alg(Algebra::AssocExpr(Assoc { map: AOp::Mul, arg })), Expr::Num(rhs)) if rhs.dom().le(&Set::Z) => {
+            let prod = arg.into_iter().map(|sub| sub.pow(Expr::Num(rhs.clone()))).collect();
             Expr::assoc(AOp::Mul, prod).trivial()
           }
 
@@ -334,9 +367,9 @@ impl Assoc {
           // ```x + _∞ = _∞```
           (AOp::Add, _, Expr::Cte(Constant::Infinity(z))) | (AOp::Add, Expr::Cte(Constant::Infinity(z)), _) => self.arg.push(Expr::Cte(Constant::Infinity(z))),
 
-          // ```_a ∞*_b ∞ = sgn(_a*_b)∞```
+          // ```_x ∞*_y ∞ = sgn(_x*_y)∞```
           (AOp::Mul, Expr::Cte(Constant::Infinity(lhs)), Expr::Cte(Constant::Infinity(rhs))) => self.arg.push(Expr::Cte(Constant::Infinity(lhs.mul(rhs)))),
-          // ```c*_∞ = sgn(c*_)∞, c ∈ ℚ```
+          // ```x*_∞ = sgn(x*_)∞, x ∈ ℚ```
           (AOp::Mul, Expr::Num(lhs), Expr::Cte(Constant::Infinity(z))) => self.arg.push(Expr::Cte(Constant::Infinity(lhs.num().mul(z).signum()))),
 
           // ```x, y ∈ ℚ```
@@ -344,13 +377,13 @@ impl Assoc {
           (AOp::Mul, Expr::Num(lhs), Expr::Num(rhs)) => self.arg.push(Expr::Num(lhs.mul(rhs)?)),
 
           // ```0 + x = x```
-          (AOp::Add, Expr::ZERO, o) => self.arg.push(o),
+          (AOp::Add, Expr::ZERO, rhs) => self.arg.push(rhs),
           // ```1*x = x```
-          (AOp::Mul, Expr::ONE, o) => self.arg.push(o),
+          (AOp::Mul, Expr::ONE, rhs) => self.arg.push(rhs),
 
-          // ```c*(x_1 + x_2 + ... + x_n) = c*x_1 + c*x_2 + ... + c*x_n, c ∈ ℚ```
-          (AOp::Mul, Expr::Num(c), Expr::Alg(Algebra::AssocExpr(Assoc { map: AOp::Add, arg }))) if c.dom().le(&Set::Q) => {
-            let sum = arg.into_iter().map(|sub| sub.mul(Expr::Num(c.clone()))).collect();
+          // ```x*(y_1 + y_2 + ... + y_n) = x*y_1 + x*y_2 + ... + x*y_n, x ∈ ℚ```
+          (AOp::Mul, Expr::Num(lhs), Expr::Alg(Algebra::AssocExpr(Assoc { map: AOp::Add, arg }))) if lhs.dom().le(&Set::Q) => {
+            let sum = arg.into_iter().map(|sub| sub.mul(Expr::Num(lhs.clone()))).collect();
             self.arg.push(Expr::assoc(AOp::Add, sum).trivial()?)
           }
 

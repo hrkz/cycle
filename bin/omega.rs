@@ -154,6 +154,8 @@ impl Prelude {
     self.def(vm, "arcosh", |e| e.arcosh())?;
     self.def(vm, "artanh", |e| e.artanh())?;
 
+    // ```exp(x)```
+    // ```log(x)```
     self.def(vm, "exp", |e| e.exp())?;
     self.def(vm, "log", |e| e.log())?;
 

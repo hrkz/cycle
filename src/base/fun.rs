@@ -73,12 +73,15 @@ impl Function {
 
           // [Trigonometric identities](https://en.wikipedia.org/wiki/List_of_trigonometric_identities)
           //
-          // Using the Pythagorean theorem
+          // The basic relationship between the sine and the cosine is given by the Pythagorean identity:
           // ```sin(x)^2 + cos(x)^2 = 1```
-          // which can be solved for sin, cos
-          // ```sin(x) = +- sqrt(1 - cos(x)^2)```
-          // ```cos(x) = +- sqrt(1 - sin(x)^2)```
-          // and a right-angle triangle, we have
+          //
+          // which can be solved either for sin or cos:
+          // * ```sin(x) = +- sqrt(1 - cos(x)^2)```
+          // * ```cos(x) = +- sqrt(1 - sin(x)^2)```
+          //
+          // on the right-angle triangle,
+          // ```sin(x) = opposite / hypothenuse, cos(x) = adjacent / hypothenuse, tan(x) = sin(x) / cos(x) = opposite / adjacent```
           //
           //
           //            |\
@@ -95,6 +98,7 @@ impl Function {
           //            |___|_______\
           //
           //                cos x
+          //
           //
 
           // ```arctan(_∞) = sgn(_∞)*π/2```
@@ -147,12 +151,14 @@ impl Function {
 
           // [Hyperbolic identities](https://en.wikipedia.org/wiki/Hyperbolic_functions#Useful_relations)
           //
-          // This is less trivial than for trigonometric functions, but the equivalent gives
+          // Using the equivalent of the Pythagorean identity for hyperbolic geometry:
           // ```sinh(x)^2 - cosh(x)^2 = -1```
-          // which can also be solved for sinh and cosh
-          // ```sinh(x) = +- sqrt(cosh(x)^2 - 1)```
-          // ```cosh(x) = +- sqrt(sinh(x)^2 - 1)```
-          // and the same also applies to the hyperbolic triangle,
+          //
+          // which can also be solved for either sinh or cosh
+          // * ```sinh(x) = +- sqrt(cosh(x)^2 - 1)```
+          // * ```cosh(x) = +- sqrt(sinh(x)^2 - 1)```
+          //
+          // on the unit hyperbola,
           //
           //
           //        |                 /
@@ -169,13 +175,14 @@ impl Function {
           //        |               \
           //        |                 \
           //
+          //
 
           // ```sinh(_∞) = arsinh(_∞) = _∞```
-          // ```cosh(_∞) = arcosh(_∞) = -sgn(_∞)*_∞```
+          // ```cosh(_∞) = arcosh(_∞) = ∞```
           (ElemOp::Sinh | ElemOp::ArSinh, Expr::Cte(Constant::Infinity(z))) => Ok(Expr::Cte(Constant::Infinity(z))),
           (ElemOp::Cosh | ElemOp::ArCosh, Expr::Cte(Constant::Infinity(_))) => Ok(Expr::Cte(Constant::Infinity(1))),
-          // ```tanh(_∞) = sgn(_)```
-          // ```artanh(_∞) = -sgn(_)*π*I/2```
+          // ```tanh(_∞) = sgn(_∞)```
+          // ```artanh(_∞) = -sgn(_∞)*π*I/2```
           (ElemOp::Tanh, Expr::Cte(Constant::Infinity(z))) => Ok(Expr::Num(Number::Z(z))),
           (ElemOp::ArTanh, Expr::Cte(Constant::Infinity(z))) => (Expr::Num(Number::Z(-z)) * Expr::Cte(Constant::pi) * Expr::Cte(Constant::I) * Expr::HALF).trivial(),
 
@@ -186,8 +193,8 @@ impl Function {
           // ```tanh(0) = artanh(0) = 0```
           (ElemOp::Tanh | ElemOp::ArTanh, Expr::ZERO) => Ok(Expr::ZERO),
 
-          // ```arcosh(0) = I*π/2```
-          (ElemOp::ArCosh, Expr::ZERO) => (Expr::Cte(Constant::I) * Expr::Cte(Constant::pi) * Expr::HALF).trivial(),
+          // ```arcosh(0) = π*I/2```
+          (ElemOp::ArCosh, Expr::ZERO) => (Expr::Cte(Constant::pi) * Expr::Cte(Constant::I) * Expr::HALF).trivial(),
           // ```arcosh(1) = 0```
           (ElemOp::ArCosh, Expr::ONE) => Ok(Expr::ZERO),
           // ```artanh(1) = ∞```

@@ -4,9 +4,7 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 use crate::{Constant, Expr, Form, Number, Set, SymbolicResult};
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Copy)]
-pub enum UOp {
-  Fact,
-}
+pub enum UOp {}
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Copy)]
 pub enum BOp {
@@ -155,13 +153,11 @@ impl Algebra {
     match self {
       Algebra::UExpr {
         //.
-        map,
+        map: _,
         arg: _,
       } => {
-        match map {
-          //.
-          UOp::Fact => 4,
-        }
+        //.
+        4
       }
 
       Algebra::BExpr {
@@ -189,37 +185,6 @@ impl Algebra {
     }
   }
 
-  pub fn subs(&self, m: &Expr, s: &Expr) -> Expr {
-    match self {
-      Algebra::UExpr {
-        //.
-        map,
-        arg,
-      } => Expr::Alg(Algebra::UExpr {
-        map: *map,
-        arg: Box::new(arg.subs(m, s)),
-      }),
-
-      Algebra::BExpr {
-        //.
-        map,
-        arg,
-      } => Expr::Alg(Algebra::BExpr {
-        map: *map,
-        arg: (Box::new(arg.0.subs(m, s)), Box::new(arg.1.subs(m, s))),
-      }),
-
-      Algebra::AssocExpr(Assoc {
-        //.
-        map,
-        arg,
-      }) => Expr::Alg(Algebra::AssocExpr(Assoc {
-        map: *map,
-        arg: arg.iter().map(|x| x.subs(m, s)).collect(),
-      })),
-    }
-  }
-
   fn require_parenthesis(&self, o: &Expr) -> bool { o.len() > 1 && o.ord() < self.ord() }
 
   fn fmt_par(&self, o: &Expr) -> String {
@@ -240,11 +205,9 @@ impl fmt::Display for Algebra {
     match self {
       Algebra::UExpr {
         //.
-        map,
-        arg,
-      } => match map {
-        UOp::Fact => write!(f, "{}!", self.fmt_par(arg)),
-      },
+        map: _,
+        arg: _,
+      } => Ok(()),
 
       Algebra::BExpr {
         //.
@@ -354,7 +317,7 @@ impl Assoc {
         }
 
         (Some(lhs), Some(rhs)) => match (self.map, lhs, rhs) {
-          (AOp::Add, Expr::Cte(Constant::Infinity(_)), Expr::Cte(Constant::Infinity(_))) => return Err(Form {}),
+          (AOp::Add, Expr::Cte(Constant::Infinity(lhs)), Expr::Cte(Constant::Infinity(rhs))) if lhs != rhs => return Err(Form {}),
           // ```0*_∞ = ?```
           (AOp::Mul, Expr::ZERO, Expr::Cte(Constant::Infinity(_))) => return Err(Form {}),
 
@@ -478,7 +441,7 @@ impl Assoc {
     // Merging
     // [`merge`](b, c) = x
     // [`merge`](b, c) = [`merge`]([`split`](x)) = x
-    if !coeff.eq(&Expr::ONE) {
+    if coeff != Expr::ONE {
       match self.map {
         // ```c*b```
         AOp::Add => coeff.mul(base),
@@ -506,9 +469,6 @@ impl Assoc {
 }
 
 impl Expr {
-  /// ```a!```
-  pub fn r#fact(self) -> Self { Self::Alg(Algebra::UExpr { map: UOp::Fact, arg: Box::new(self) }) }
-
   /// ```a^b```
   pub fn r#pow(
     //.
@@ -533,7 +493,7 @@ impl Expr {
   /// ```√a```
   pub fn r#sqrt(self) -> Self { self.pow(Expr::HALF) }
 
-  fn r#assoc(map: AOp, arg: Vec<Expr>) -> Self {
+  pub fn r#assoc(map: AOp, arg: Vec<Expr>) -> Self {
     Self::Alg(Algebra::AssocExpr(Assoc {
       //.
       map,

@@ -17,6 +17,7 @@ pub enum TokenKind<'a> {
   LSqr,
   RSqr,
   Comma,
+  Semicolon,
   Rule,
   Def,
   // Lang
@@ -25,7 +26,6 @@ pub enum TokenKind<'a> {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TokenKeyword {
-  Interval,
   // Operators
   Derivative,
   Integral,
@@ -138,7 +138,6 @@ impl<'a> Lexer<'a> {
       //.
       c == ':' ||
       c == '=' ||
-      c == ';' ||
       c == '∂' ||
       c == '∫' ||
       c == '∑' ||
@@ -147,7 +146,6 @@ impl<'a> Lexer<'a> {
     let kind = match text {
       ":=" => TokenKind::Rule,
       "=" => TokenKind::Def,
-      ";" => TokenKind::Keyword(TokenKeyword::Interval),
 
       "∂" => TokenKind::Keyword(TokenKeyword::Derivative),
       "∫" => TokenKind::Keyword(TokenKeyword::Integral),
@@ -185,6 +183,7 @@ impl<'a> Iterator for Lexer<'a> {
         '[' => Some(self.tok(TokenKind::LSqr)),
         ']' => Some(self.tok(TokenKind::RSqr)),
         ',' => Some(self.tok(TokenKind::Comma)),
+        ';' => Some(self.tok(TokenKind::Semicolon)),
 
         num if num.is_ascii_digit() => Some(self.number()),
         sym if sym.is_alphabetic() => Some(self.symbol()),

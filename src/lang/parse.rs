@@ -467,12 +467,12 @@ impl Op {
     match self {
       Op::Infix(Infix::Add) | Op::Infix(Infix::Sub) => 1,
       Op::Infix(Infix::Mul) | Op::Infix(Infix::Div) => 2,
-      Op::Infix(Infix::Pow) => 4,
+      Op::Infix(Infix::Pow) => 3,
 
       Op::Postfix(
         //.
         Postfix::Fact,
-      ) => 5,
+      ) => 4,
     }
   }
 

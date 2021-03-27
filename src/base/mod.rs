@@ -79,7 +79,7 @@ pub enum Expr {
   Fun(Function),
   // Calculus (limit, derivative, integral)
   //Cal(Calculus),
-  // Operation (expand, factor, etc.)
+  // Operation (expand, factor, lambda)
   //Op(Operation),
   // Sequence (sum, product)
   //Sq(Sequence),
@@ -168,26 +168,28 @@ impl Expr {
     }
   }
 
-  pub fn subs(&self, m: &Expr, s: &Expr) -> Expr {
-    if self.eq(m) {
-      return s.clone();
+  pub fn subs(&mut self, m: &Expr, s: &Expr) {
+    if m.eq(self) {
+      return *self = s.clone();
     } else if self.free(m) {
-      return self.clone();
+      return *self = self.clone();
     }
 
-    match_term!(
-      self, {
-        Expr::Sym | Expr::Cte | Expr::Num => |_| s.clone(),
-        Expr::Alg
-      | Expr::Fun
-    //| Expr::Cal
-    //| Expr::Op
-    //| Expr::Sq
-        => |e| {
-          e.subs(m, s)
-        }
+    match self {
+      Expr::Cte(_)
+    | Expr::Sym(_)
+    | Expr::Num(_) => *self = s.clone(),
+      Expr::Alg(_)
+    | Expr::Fun(_)
+  //| Expr::Cal(_)
+  //| Expr::Op(_)
+  //| Expr::Sq(_)
+      => {
+        self.iter_mut().for_each(
+          |e| e.subs(m, s)
+        )
       }
-    )
+    }
   }
 
   pub fn is_leaf(&self) -> bool {
@@ -212,7 +214,7 @@ impl Expr {
       Expr::Alg(a) => a.ord(),
 
       Expr::Fun(_)
-  //| Expr::Cal(_) 
+  //| Expr::Cal(_)
   //| Expr::Op(_)
   //| Expr::Sq(_)
       => {
@@ -221,12 +223,29 @@ impl Expr {
     }
   }
 
-  pub fn iter(
-    //.
-    &self,
-  ) -> Iter {
+  // Helpers
+
+  pub fn is_symbol(&self) -> Option<&Symbol> {
+    if let Expr::Sym(sym) = self {
+      Some(sym)
+    } else {
+      None
+    }
+  }
+
+  pub fn iter(&self) -> Iter {
     Iter {
-      // root
+      // :rec
+      // fold
+      // any
+      root: self,
+    }
+  }
+
+  pub fn iter_mut(&mut self) -> IterMut {
+    IterMut {
+      // :rec
+      // for_each
       root: self,
     }
   }
@@ -324,11 +343,11 @@ impl Ord for Expr {
       (Expr::Alg(Algebra::BExpr { map: _, arg: (term, exp) }), rhs) => term.as_ref().cmp(rhs).then(exp.as_ref().cmp(&Expr::ONE)),
       (lhs, Expr::Alg(Algebra::BExpr { map: _, arg: (term, exp) })) => lhs.cmp(term.as_ref()).then(Expr::ONE.cmp(&exp.as_ref())),
 
-      (Expr::Fun(_), _) => Ordering::Less,
-      (_, Expr::Fun(_)) => Ordering::Greater,
-
       (Expr::Sym(_), _) => Ordering::Less,
       (_, Expr::Sym(_)) => Ordering::Greater,
+
+      (Expr::Fun(_), _) => Ordering::Less,
+      (_, Expr::Fun(_)) => Ordering::Greater,
     }
   }
 }
@@ -398,6 +417,7 @@ impl<'e> Iter<'e> {
             map,
           ) => match map {
             Special::Comp(lhs, rhs) => f(f(init, lhs.as_ref()), rhs.as_ref()),
+            Special::Fact(arg) => f(init, arg.as_ref()),
           },
 
           Function::MapExpr {
@@ -420,7 +440,7 @@ impl<'e> Iter<'e> {
 
   pub fn fold_self<B, F>(
     //.
-    &self,
+    self,
     init: B,
     f: F,
   ) -> B
@@ -432,7 +452,7 @@ impl<'e> Iter<'e> {
 
   pub fn fold_rec<B, F>(
     //.
-    &self,
+    self,
     init: B,
     f: &F,
   ) -> B
@@ -453,7 +473,7 @@ impl<'e> Iter<'e> {
 
   pub fn any<F>(
     //.
-    &self,
+    self,
     f: &F,
   ) -> bool
   where
@@ -471,6 +491,94 @@ impl<'e> Iter<'e> {
         init,
         |acc, e| acc || e.iter().any(f), //.
       )
+    }
+  }
+}
+
+pub struct IterMut<'e> {
+  // recursive mutable visitor
+  root: &'e mut Expr,
+}
+
+impl<'e> IterMut<'e> {
+  pub fn for_each<F>(
+    //.
+    self,
+    f: F,
+  ) where
+    F: Fn(&mut Expr),
+  {
+    match self.root {
+      Expr::Alg(alg) => {
+        match alg {
+          Algebra::UExpr {
+            // 1
+            map: _,
+            arg,
+          } => {
+            //.
+            f(arg.as_mut())
+          }
+
+          Algebra::BExpr {
+            // 2
+            map: _,
+            arg,
+          } => {
+            //.
+            f(arg.0.as_mut());
+            f(arg.1.as_mut());
+          }
+
+          Algebra::AssocExpr(Assoc {
+            // n
+            map: _,
+            arg,
+          }) => {
+            //.
+            arg.iter_mut().for_each(|e| f(e))
+          }
+        }
+      }
+
+      Expr::Fun(fun) => {
+        match fun {
+          Function::ElemExpr {
+            // 1
+            map: _,
+            arg,
+          } => {
+            //.
+            f(arg.as_mut())
+          }
+
+          Function::SpecExpr(
+            // n
+            map,
+          ) => match map {
+            Special::Comp(lhs, rhs) => {
+              f(lhs.as_mut());
+              f(rhs.as_mut());
+            }
+
+            Special::Fact(arg) => f(arg.as_mut()),
+          },
+
+          Function::MapExpr {
+            // n
+            map: _,
+            arg,
+          } => {
+            //.
+            arg.iter_mut().for_each(|e| f(e))
+          }
+        }
+      }
+
+      atom => {
+        //.
+        f(atom)
+      }
     }
   }
 }

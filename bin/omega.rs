@@ -17,7 +17,7 @@ use std::io::{self, stdin, stdout, Write};
 fn main() -> io::Result<()> {
   let mut vm = Interpreter::new(1);
 
-  Prelude::new().use_into(&mut vm, true).unwrap_or_else(|err| eprintln!("failed to load cycle prelude: {}", err));
+  Prelude::new().use_into(&mut vm).unwrap_or_else(|err| eprintln!("failed to load cycle prelude: {}", err));
   if let Some(filename) = env::args().nth(1) {
     vm.file(filename)
   } else {
@@ -122,22 +122,34 @@ impl Prelude {
     //.
     &self,
     vm: &mut Interpreter,
-    _op: bool,
   ) -> Result<(), LangError> {
+    // ```sqrt(x) = x^(1/2)```
     self.def(vm, "sqrt", |e| e.sqrt())?;
 
+    // ```sin(x)```
+    // ```cos(x)```
+    // ```tan(x)```
     self.def(vm, "sin", |e| e.sin())?;
     self.def(vm, "cos", |e| e.cos())?;
     self.def(vm, "tan", |e| e.tan())?;
 
+    // ```arcsin(x)```
+    // ```arccos(x)```
+    // ```arctan(x)```
     self.def(vm, "arcsin", |e| e.arcsin())?;
     self.def(vm, "arccos", |e| e.arccos())?;
     self.def(vm, "arctan", |e| e.arctan())?;
 
+    // ```sinh(x)```
+    // ```cosh(x)```
+    // ```tanh(x)```
     self.def(vm, "sinh", |e| e.sinh())?;
     self.def(vm, "cosh", |e| e.cosh())?;
     self.def(vm, "tanh", |e| e.tanh())?;
 
+    // ```arsinh(x)```
+    // ```arcosh(x)```
+    // ```artanh(x)```
     self.def(vm, "arsinh", |e| e.arsinh())?;
     self.def(vm, "arcosh", |e| e.arcosh())?;
     self.def(vm, "artanh", |e| e.artanh())?;

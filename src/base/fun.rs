@@ -4,38 +4,37 @@ use crate::{Constant, Expr, Form, Number, SymbolicResult};
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Copy)]
 pub enum ElemOp {
-  // Cartesian (circular, hyperbolic)
-  Cart(CartExpr),
+  // Trigonometric
+  Sin,
+  Cos,
+  Tan,
+  ArcSin,
+  ArcCos,
+  ArcTan,
+
+  // Hyperbolic
+  Sinh,
+  Cosh,
+  Tanh,
+  ArSinh,
+  ArCosh,
+  ArTanh,
 
   // Exponential
   Exp,
   Log,
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Copy)]
-pub struct CartExpr {
-  map: CartOp,
-  fig: FigOp,
-  ord: bool,
-}
-
-#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Copy)]
-pub enum CartOp {
-  Sin,
-  Cos,
-  Tan,
-}
-
-#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Copy)]
-pub enum FigOp {
-  Cir,
-  Hyp,
-}
-
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum Special {
   /// ```(f ∘ g)(x)```
   Comp(Box<Expr>, Box<Expr>),
+
+  // Abs
+  //Abs(Box<Expr>),
+
+  // Combinatorial
+  Fact(Box<Expr>),
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
@@ -59,6 +58,182 @@ pub enum Function {
 impl Function {
   pub fn trivial(self) -> SymbolicResult<Expr> {
     match self {
+      Function::ElemExpr {
+        //.
+        map,
+        arg,
+      } => {
+        match (map, arg.trivial()?) {
+          (_, Expr::Cte(Constant::Infinity(0))) => Err(Form {}),
+
+          (_, Expr::Fun(Function::ElemExpr { map: rhs, arg })) if map.inverse().map_or(false, |inv| inv.eq(&rhs)) => {
+            // inverse functions
+            Ok(*arg)
+          }
+
+          // [Trigonometric identities](https://en.wikipedia.org/wiki/List_of_trigonometric_identities)
+          //
+          // Using the Pythagorean theorem
+          // ```sin(x)^2 + cos(x)^2 = 1```
+          // which can be solved for sin, cos
+          // ```sin(x) = +- sqrt(1 - cos(x)^2)```
+          // ```cos(x) = +- sqrt(1 - sin(x)^2)```
+          // and a right-angle triangle, we have
+          //
+          //
+          //            |\
+          //            | \
+          //            |  \
+          //            |   \
+          //            |    \
+          //            |     \  1
+          //     sin x  |      \
+          //            |       \
+          //            |        \
+          //            |___      \
+          //            |   |   x  \
+          //            |___|_______\
+          //
+          //                cos x
+          //
+
+          // ```arctan(_∞) = sgn(_∞)*π/2```
+          (ElemOp::ArcTan, Expr::Cte(Constant::Infinity(z))) => (Expr::Num(Number::Z(z)) * Expr::Cte(Constant::pi) * Expr::HALF).trivial(),
+
+          // ```sin(0) = arcsin(0) = 0```
+          (ElemOp::Sin | ElemOp::ArcSin, Expr::ZERO) => Ok(Expr::ZERO),
+          // ```cos(0) = 1```
+          (ElemOp::Cos, Expr::ZERO) => Ok(Expr::ONE),
+          // ```tan(0) = arctan(0) = 0```
+          (ElemOp::Tan | ElemOp::ArcTan, Expr::ZERO) => Ok(Expr::ZERO),
+
+          // ```sin(π) = 0```
+          (ElemOp::Sin, Expr::Cte(Constant::pi)) => Ok(Expr::ZERO),
+          // ```cos(π) = -1```
+          (ElemOp::Cos, Expr::Cte(Constant::pi)) => Ok(Expr::NEG_ONE),
+          // ```tan(π) = 0```
+          (ElemOp::Tan, Expr::Cte(Constant::pi)) => Ok(Expr::ZERO),
+
+          // ```arccos(0) = π/2```
+          (ElemOp::ArcCos, Expr::ZERO) => (Expr::Cte(Constant::pi) * Expr::HALF).trivial(),
+          // ```arcsin(1) = π/2```
+          (ElemOp::ArcSin, Expr::ONE) => (Expr::Cte(Constant::pi) * Expr::HALF).trivial(),
+          // ```arccos(1) = 0```
+          (ElemOp::ArcCos, Expr::ONE) => Ok(Expr::ZERO),
+          // ```arctan(1) = π/4```
+          (ElemOp::ArcTan, Expr::ONE) => (Expr::Cte(Constant::pi) * Expr::QUARTER).trivial(),
+
+          // ```sin(I) = I*sinh(1)```
+          // ```cos(I) = I*cosh(1)```
+          // ```tan(I) = I*tanh(1)```
+          (ElemOp::Sin, Expr::Cte(Constant::I)) => Ok(Expr::Cte(Constant::I) * Expr::sinh(Expr::ONE)),
+          (ElemOp::Cos, Expr::Cte(Constant::I)) => Ok(Expr::cosh(Expr::ONE)),
+          (ElemOp::Tan, Expr::Cte(Constant::I)) => Ok(Expr::Cte(Constant::I) * Expr::tanh(Expr::ONE)),
+
+          // ```sin(arccos(x)) = sqrt(1 - x^2)```
+          // ```sin(arctan(x)) = x/sqrt(1 + x^2)```
+          (ElemOp::Sin, Expr::Fun(Function::ElemExpr { map: ElemOp::ArcCos, arg })) => Expr::sqrt(Expr::ONE - arg.pow(Expr::Num(Number::Z(2)))).trivial(),
+          (ElemOp::Sin, Expr::Fun(Function::ElemExpr { map: ElemOp::ArcTan, arg })) => (*arg.clone() / Expr::sqrt(Expr::ONE + arg.pow(Expr::Num(Number::Z(2))))).trivial(),
+
+          // ```cos(arcsin(x)) = sqrt(1 - x^2)```
+          // ```cos(arctan(x)) = 1/sqrt(1 + x^2)```
+          (ElemOp::Cos, Expr::Fun(Function::ElemExpr { map: ElemOp::ArcSin, arg })) => Expr::sqrt(Expr::ONE - arg.pow(Expr::Num(Number::Z(2)))).trivial(),
+          (ElemOp::Cos, Expr::Fun(Function::ElemExpr { map: ElemOp::ArcTan, arg })) => (Expr::ONE / Expr::sqrt(Expr::ONE + arg.pow(Expr::Num(Number::Z(2))))).trivial(),
+
+          // ```tan(arcsin(x)) = x/(sqrt(1 - x^2))```
+          // ```tan(arccos(x)) = sqrt(1 - x^2)/x```
+          (ElemOp::Tan, Expr::Fun(Function::ElemExpr { map: ElemOp::ArcSin, arg })) => (*arg.clone() / Expr::sqrt(Expr::ONE - arg.pow(Expr::Num(Number::Z(2))))).trivial(),
+          (ElemOp::Tan, Expr::Fun(Function::ElemExpr { map: ElemOp::ArcCos, arg })) => (Expr::sqrt(Expr::ONE - arg.clone().pow(Expr::Num(Number::Z(2)))) / *arg).trivial(),
+
+          // [Hyperbolic identities](https://en.wikipedia.org/wiki/Hyperbolic_functions#Useful_relations)
+          //
+          // This is less trivial than for trigonometric functions, but the equivalent gives
+          // ```sinh(x)^2 - cosh(x)^2 = -1```
+          // which can also be solved for sinh and cosh
+          // ```sinh(x) = +- sqrt(cosh(x)^2 - 1)```
+          // ```cosh(x) = +- sqrt(sinh(x)^2 - 1)```
+          // and the same also applies to the hyperbolic triangle,
+          //
+          //
+          //        |                 /
+          //        |  cosh x     / /
+          //        |          /  /
+          //        |       /   /
+          //        |    /    /
+          //        |  / x/2 /     sinh x
+          //        |/______|
+          //        |        \
+          //        |         \
+          //        |           \
+          //        |             \
+          //        |               \
+          //        |                 \
+          //
+
+          // ```sinh(_∞) = arsinh(_∞) = _∞```
+          // ```cosh(_∞) = arcosh(_∞) = -sgn(_∞)*_∞```
+          (ElemOp::Sinh | ElemOp::ArSinh, Expr::Cte(Constant::Infinity(z))) => Ok(Expr::Cte(Constant::Infinity(z))),
+          (ElemOp::Cosh | ElemOp::ArCosh, Expr::Cte(Constant::Infinity(_))) => Ok(Expr::Cte(Constant::Infinity(1))),
+          // ```tanh(_∞) = sgn(_)```
+          // ```artanh(_∞) = -sgn(_)*π*I/2```
+          (ElemOp::Tanh, Expr::Cte(Constant::Infinity(z))) => Ok(Expr::Num(Number::Z(z))),
+          (ElemOp::ArTanh, Expr::Cte(Constant::Infinity(z))) => (Expr::Num(Number::Z(-z)) * Expr::Cte(Constant::pi) * Expr::Cte(Constant::I) * Expr::HALF).trivial(),
+
+          // ```sinh(0) = arsinh(0) = 0```
+          (ElemOp::Sinh | ElemOp::ArSinh, Expr::ZERO) => Ok(Expr::ZERO),
+          // ```cosh(0) = 1```
+          (ElemOp::Cosh, Expr::ZERO) => Ok(Expr::ONE),
+          // ```tanh(0) = artanh(0) = 0```
+          (ElemOp::Tanh | ElemOp::ArTanh, Expr::ZERO) => Ok(Expr::ZERO),
+
+          // ```arcosh(0) = I*π/2```
+          (ElemOp::ArCosh, Expr::ZERO) => (Expr::Cte(Constant::I) * Expr::Cte(Constant::pi) * Expr::HALF).trivial(),
+          // ```arcosh(1) = 0```
+          (ElemOp::ArCosh, Expr::ONE) => Ok(Expr::ZERO),
+          // ```artanh(1) = ∞```
+          (ElemOp::ArTanh, Expr::ONE) => Ok(Expr::Cte(Constant::Infinity(1))),
+
+          // ```sinh(arcosh(x)) = sqrt(x - 1)*sqrt(x + 1)```
+          // ```sinh(artanh(x)) = x/sqrt(1 - x^2)```
+          (ElemOp::Sinh, Expr::Fun(Function::ElemExpr { map: ElemOp::ArCosh, arg })) => (Expr::sqrt(*arg.clone() - Expr::ONE) * Expr::sqrt(*arg + Expr::ONE)).trivial(),
+          (ElemOp::Sinh, Expr::Fun(Function::ElemExpr { map: ElemOp::ArTanh, arg })) => (*arg.clone() / Expr::sqrt(Expr::ONE - arg.pow(Expr::Num(Number::Z(2))))).trivial(),
+
+          // ```cosh(arsinh(x)) = sqrt(1 + x^2)```
+          // ```cosh(artanh(x)) = 1/sqrt(1 - x^2)```
+          (ElemOp::Cosh, Expr::Fun(Function::ElemExpr { map: ElemOp::ArSinh, arg })) => Expr::sqrt(Expr::ONE + arg.pow(Expr::Num(Number::Z(2)))).trivial(),
+          (ElemOp::Cosh, Expr::Fun(Function::ElemExpr { map: ElemOp::ArTanh, arg })) => (Expr::ONE / Expr::sqrt(Expr::ONE - arg.pow(Expr::Num(Number::Z(2))))).trivial(),
+
+          // ```tanh(arsinh(x)) = x/(sqrt(1 + x^2))```
+          // ```tanh(arcosh(x)) = sqrt(x - 1)*sqrt(x + 1)/x```
+          (ElemOp::Tanh, Expr::Fun(Function::ElemExpr { map: ElemOp::ArSinh, arg })) => (*arg.clone() / Expr::sqrt(Expr::ONE + arg.pow(Expr::Num(Number::Z(2))))).trivial(),
+          (ElemOp::Tanh, Expr::Fun(Function::ElemExpr { map: ElemOp::ArCosh, arg })) => (Expr::sqrt(*arg.clone() - Expr::ONE) * Expr::sqrt(*arg.clone() + Expr::ONE) / *arg).trivial(),
+
+          // [Exponential identities](https://en.wikipedia.org/wiki/Exponential_function)
+          //
+
+          // ```log(_∞) = ∞```
+          // ```exp(-∞) = 0```
+          // ```exp(∞) = ∞```
+          (ElemOp::Log, Expr::Cte(Constant::Infinity(_))) => Ok(Expr::Cte(Constant::Infinity(1))),
+          (ElemOp::Exp, Expr::Cte(Constant::Infinity(-1))) => Ok(Expr::ZERO),
+          (ElemOp::Exp, Expr::Cte(Constant::Infinity(1))) => Ok(Expr::Cte(Constant::Infinity(1))),
+
+          // ```exp(0) = 1```
+          (ElemOp::Exp, Expr::ZERO) => Ok(Expr::ONE),
+          // ```log(0) = -∞```
+          (ElemOp::Log, Expr::ZERO) => Ok(Expr::Cte(Constant::Infinity(-1))),
+          // ```log(1) = 0```
+          (ElemOp::Log, Expr::ONE) => Ok(Expr::ZERO),
+
+          // ```log(1/x) = -log(x), x ∈ ℕ```
+          (ElemOp::Log, Expr::Num(rhs)) if rhs.num().eq(&1) => Ok(-Expr::log(Expr::Num(Number::Z(rhs.den())))),
+
+          (map, arg) => {
+            Ok(arg.elem(map)) //.
+          }
+        }
+      }
+
       Function::MapExpr {
         //.
         map,
@@ -72,145 +247,9 @@ impl Function {
         }))
       }
 
-      Function::ElemExpr {
-        //.
-        map,
-        arg,
-      } => {
-        let arg = arg.trivial()?;
-
-        match map {
-          ElemOp::Cart(CartExpr {
-            //.
-            map,
-            fig,
-            ord,
-          }) => {
-            match (arg, map, fig, ord) {
-              (Expr::Cte(Constant::Infinity(0)), _, _, _) => Err(Form {}),
-
-              // ```sin(0) = sinh(0) = 0```
-              (Expr::ZERO, CartOp::Sin, _, true) => Ok(Expr::ZERO),
-              // ```cos(0) = cosh(0) = 1```
-              (Expr::ZERO, CartOp::Cos, _, true) => Ok(Expr::ONE),
-              // ```tan(0) = tanh(0) = 0```
-              (Expr::ZERO, CartOp::Tan, _, true) => Ok(Expr::ZERO),
-
-              // ```arcsin(0) = 0```
-              (Expr::ZERO, CartOp::Sin, FigOp::Cir, false) => Ok(Expr::ZERO),
-              // ```arccos(0) = π/2```
-              (Expr::ZERO, CartOp::Cos, FigOp::Cir, false) => (Expr::Cte(Constant::pi) * Expr::HALF).trivial(),
-              // ```arctan(0) = 0```
-              (Expr::ZERO, CartOp::Tan, FigOp::Cir, false) => Ok(Expr::ZERO),
-
-              // ```arcsin(1) = π/2```
-              (Expr::ONE, CartOp::Sin, FigOp::Cir, false) => (Expr::Cte(Constant::pi) * Expr::HALF).trivial(),
-              // ```arccos(1) = 0```
-              (Expr::ONE, CartOp::Cos, FigOp::Cir, false) => Ok(Expr::ZERO),
-              // ```arctan(1) = π/4```
-              (Expr::ONE, CartOp::Tan, FigOp::Cir, false) => (Expr::Cte(Constant::pi) * Expr::QUARTER).trivial(),
-
-              // ```ar{}(0)h = arc{}(0)*I```
-              (Expr::ZERO, map, FigOp::Hyp, false) => (Expr::ZERO.cart(map, FigOp::Cir, false) * Expr::Cte(Constant::I)).trivial(),
-
-              // ```arctan(_∞) = sgn(_)*π/2```
-              (Expr::Cte(Constant::Infinity(z)), CartOp::Tan, FigOp::Cir, false) => (Expr::Num(Number::Z(z)) * Expr::Cte(Constant::pi) * Expr::HALF).trivial(),
-              // ```actanh(_∞) = -sgn(_)*π*I/2```
-              (Expr::Cte(Constant::Infinity(z)), CartOp::Tan, FigOp::Hyp, false) => (-Expr::Num(Number::Z(z)) * Expr::Cte(Constant::pi) * Expr::Cte(Constant::I) * Expr::HALF).trivial(),
-              // ```tanh(_∞) = sgn(_)```
-              (Expr::Cte(Constant::Infinity(z)), CartOp::Tan, FigOp::Hyp, true) => Ok(Expr::Num(Number::Z(z))),
-              // ```cosh(_∞) = sinh(_∞) = arcosh(_∞) = arsinh(_∞) = _∞```
-              (Expr::Cte(Constant::Infinity(z)), _, FigOp::Hyp, _) => Ok(Expr::Cte(Constant::Infinity(z))),
-
-              // ```cart{}(cart{}^-1(x))```
-              (Expr::Fun(Function::ElemExpr { map: ElemOp::Cart(comp), arg }), map, fig, true) if !comp.ord && comp.fig == fig => map.composition(comp.map, fig, *arg),
-
-              // π and I reflections
-              (arg, map, fig, ord) => {
-                Ok(arg.cart(map, fig, ord)) //.
-              }
-            }
-          }
-
-          ElemOp::Exp => match arg {
-            // ```exp(0) = 1```
-            Expr::ZERO => Ok(Expr::ONE),
-            // ```exp(-∞) = 0```
-            Expr::Cte(Constant::Infinity(-1)) => Ok(Expr::ZERO),
-            // ```exp(∞) = ∞```
-            Expr::Cte(Constant::Infinity(1)) => Ok(Expr::Cte(Constant::Infinity(1))),
-
-            // ```exp(log(x)) = x```
-            Expr::Fun(Function::ElemExpr {
-              //.
-              map: ElemOp::Log,
-              arg,
-            }) => {
-              Ok(*arg) //.
-            }
-
-            // exp π*I reflections
-            arg => {
-              Ok(arg.exp()) //.
-            }
-          },
-
-          ElemOp::Log => match arg {
-            // ```log(1) = 0```
-            Expr::ONE => Ok(Expr::ZERO),
-            // ```log(_∞) = ∞```
-            Expr::Cte(Constant::Infinity(_)) => Ok(Expr::Cte(Constant::Infinity(1))),
-
-            // ```log(exp(x)) = x```
-            Expr::Fun(Function::ElemExpr {
-              //.
-              map: ElemOp::Exp,
-              arg,
-            }) => {
-              Ok(*arg) //.
-            }
-
-            // log sign
-            // log I reflections
-            arg => {
-              Ok(arg.log()) //.
-            }
-          },
-        }
-      }
-
       _ => {
         Ok(Expr::Fun(self)) //.
       }
-    }
-  }
-
-  pub fn subs(&self, m: &Expr, s: &Expr) -> Expr {
-    match self {
-      Function::ElemExpr {
-        //.
-        map,
-        arg,
-      } => Expr::Fun(Function::ElemExpr {
-        map: *map,
-        arg: Box::new(arg.subs(m, s)),
-      }),
-
-      Function::SpecExpr(
-        //.
-        map,
-      ) => match map {
-        Special::Comp(lhs, rhs) => Expr::Fun(Function::SpecExpr(Special::Comp(Box::new(lhs.subs(m, s)), Box::new(rhs.subs(m, s))))),
-      },
-
-      Function::MapExpr {
-        //.
-        map,
-        arg,
-      } => Expr::Fun(Function::MapExpr {
-        map: map.clone(),
-        arg: arg.iter().map(|x| x.subs(m, s)).collect(),
-      }),
     }
   }
 }
@@ -227,20 +266,12 @@ impl fmt::Display for Function {
           //.
           f,
           "{}({})",
-          format!("{}", map).to_lowercase(),
+          format!("{:?}", map).to_lowercase(),
           arg
         )
       }
 
-      Function::SpecExpr(
-        //.
-        map,
-      ) => {
-        //.
-        match map {
-          Special::Comp(lhs, rhs) => write!(f, "{} ∘ {}", lhs, rhs),
-        }
-      }
+      Function::SpecExpr(spe) => write!(f, "{}", spe),
 
       Function::MapExpr {
         //.
@@ -261,7 +292,7 @@ impl fmt::Display for Function {
           write!(
             //.
             f,
-            "{}",
+            "{}()",
             map
           )
         }
@@ -270,120 +301,96 @@ impl fmt::Display for Function {
   }
 }
 
-impl CartOp {
-  fn composition(
-    //.
-    self,
-    map: CartOp,
-    fig: FigOp,
-    arg: Expr,
-  ) -> SymbolicResult<Expr> {
-    if self.eq(&map) {
-      Ok(arg) //.
-    } else {
-      let tr_a = Expr::ONE;
-      let tr_b = arg.clone();
-      let tr_c = arg.pow(Expr::Num(Number::Z(2)));
-
-      match (fig, map) {
-        // ```cos(arcsin(x)) = sqrt(1 - x^2)```
-        // ```tan(arcsin(x)) = x/(sqrt(1 - x^2))```
-        (FigOp::Cir, CartOp::Sin) => self.triangle(tr_a.clone(), tr_b, (tr_a - tr_c).sqrt()),
-        // ```sin(arccos(x)) = sqrt(1 - x^2)```
-        // ```tan(arccos(x)) = sqrt(1 - x^2)/x```
-        (FigOp::Cir, CartOp::Cos) => self.triangle(tr_a.clone(), (tr_a - tr_c).sqrt(), tr_b),
-        // ```sin(arctan(x)) = x/sqrt(1 + x^2)```
-        // ```cos(arctan(x)) = 1/sqrt(1 + x^2)```
-        (FigOp::Cir, CartOp::Tan) => self.triangle((tr_a.clone() + tr_c).sqrt(), tr_b, tr_a),
-        // ```cosh(arsinh(x)) = sqrt(1 + x^2)```
-        // ```tanh(arsinh(x)) = x/sqrt(1 + x^2)```
-        (FigOp::Hyp, CartOp::Sin) => self.triangle(tr_a.clone(), tr_b, (tr_a + tr_c).sqrt()),
-        // ```sinh(arcosh(x)) = sqrt(x^2 - 1)```
-        // ```tanh(arcosh(x)) = sqrt(x^2 - 1)/x```
-        (FigOp::Hyp, CartOp::Cos) => self.triangle(tr_a.clone(), (tr_c - tr_a).sqrt(), tr_b),
-        // ```sinh(artanh(x)) = x/sqrt(1 - x^2)```
-        // ```cosh(artanh(x)) = 1/sqrt(1 - x^2)```
-        (FigOp::Hyp, CartOp::Tan) => self.triangle((tr_a.clone() - tr_c).sqrt(), tr_b, tr_a),
-      }
-      .trivial()
-    }
-  }
-
-  fn triangle(
-    //.
-    self,
-    hypot: Expr,
-    opp: Expr,
-    adj: Expr,
-  ) -> Expr {
+impl fmt::Display for Special {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match self {
-      CartOp::Sin => opp / hypot,
-      CartOp::Cos => adj / hypot,
-      CartOp::Tan => opp / adj,
+      // Function composition
+      // ```f : X -> Y```
+      // ```g : Y -> Z```
+      // ```g ∘ f : X -> Z```
+      // ```(g ∘ f)(x) = g(f(x))```
+      // convenience for function nesting
+      Special::Comp(lhs, rhs) => write!(
+        //.
+        f,
+        "{} ∘ {}",
+        lhs,
+        rhs
+      ),
+
+      // Factorial
+      // expressed with multiplications
+      Special::Fact(arg) => write!(
+        //.
+        f,
+        "{}!",
+        arg
+      ),
     }
   }
 }
 
-impl fmt::Display for ElemOp {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl ElemOp {
+  fn inverse(self) -> Option<Self> {
     match self {
-      ElemOp::Cart(CartExpr {
-        //.
-        map,
-        fig,
-        ord,
-      }) => match (fig, ord) {
-        (FigOp::Cir, true) => write!(f, "{:?}", map),
-        (FigOp::Hyp, true) => write!(f, "{:?}h", map),
-        (FigOp::Cir, false) => write!(f, "Arc{:?}", map),
-        (FigOp::Hyp, false) => write!(f, "Ar{:?}h", map),
-      },
+      // ```sin(arcsin(x)) = x```
+      // ```cos(arccos(x)) = x```
+      // ```tan(arctan(x)) = x```
+      ElemOp::Sin => Some(ElemOp::ArcSin),
+      ElemOp::Cos => Some(ElemOp::ArcCos),
+      ElemOp::Tan => Some(ElemOp::ArcTan),
 
-      map => {
-        write!(
-          //.
-          f,
-          "{:?}",
-          map
-        )
-      }
+      // ```sinh(arsinh(x)) = x```
+      // ```cosh(arcosh(x)) = x```
+      // ```tanh(artanh(x)) = x```
+      ElemOp::Sinh => Some(ElemOp::ArSinh),
+      ElemOp::Cosh => Some(ElemOp::ArCosh),
+      ElemOp::Tanh => Some(ElemOp::ArTanh),
+
+      // ```exp(log(x)) = x```
+      ElemOp::Exp => Some(ElemOp::Log),
+
+      _ => None,
     }
   }
 }
 
 impl Expr {
   /// ```sin(x)```
-  pub fn r#sin(self) -> Self { self.cart(CartOp::Sin, FigOp::Cir, true) }
+  pub fn r#sin(self) -> Self { self.elem(ElemOp::Sin) }
   /// ```cos(x)```
-  pub fn r#cos(self) -> Self { self.cart(CartOp::Cos, FigOp::Cir, true) }
+  pub fn r#cos(self) -> Self { self.elem(ElemOp::Cos) }
   /// ```tan(x)```
-  pub fn r#tan(self) -> Self { self.cart(CartOp::Tan, FigOp::Cir, true) }
+  pub fn r#tan(self) -> Self { self.elem(ElemOp::Tan) }
 
   /// ```arcsin(x)```
-  pub fn r#arcsin(self) -> Self { self.cart(CartOp::Sin, FigOp::Cir, false) }
+  pub fn r#arcsin(self) -> Self { self.elem(ElemOp::ArcSin) }
   /// ```arccos(x)```
-  pub fn r#arccos(self) -> Self { self.cart(CartOp::Cos, FigOp::Cir, false) }
+  pub fn r#arccos(self) -> Self { self.elem(ElemOp::ArcCos) }
   /// ```arctan(x)```
-  pub fn r#arctan(self) -> Self { self.cart(CartOp::Tan, FigOp::Cir, false) }
+  pub fn r#arctan(self) -> Self { self.elem(ElemOp::ArcTan) }
 
   /// ```sinh(x)```
-  pub fn r#sinh(self) -> Self { self.cart(CartOp::Sin, FigOp::Hyp, true) }
+  pub fn r#sinh(self) -> Self { self.elem(ElemOp::Sinh) }
   /// ```cosh(x)```
-  pub fn r#cosh(self) -> Self { self.cart(CartOp::Cos, FigOp::Hyp, true) }
+  pub fn r#cosh(self) -> Self { self.elem(ElemOp::Cosh) }
   /// ```tanh(x)```
-  pub fn r#tanh(self) -> Self { self.cart(CartOp::Tan, FigOp::Hyp, true) }
+  pub fn r#tanh(self) -> Self { self.elem(ElemOp::Tanh) }
 
   /// ```arsinh(x)```
-  pub fn r#arsinh(self) -> Self { self.cart(CartOp::Sin, FigOp::Hyp, false) }
+  pub fn r#arsinh(self) -> Self { self.elem(ElemOp::ArSinh) }
   /// ```arcosh(x)```
-  pub fn r#arcosh(self) -> Self { self.cart(CartOp::Cos, FigOp::Hyp, false) }
+  pub fn r#arcosh(self) -> Self { self.elem(ElemOp::ArCosh) }
   /// ```artanh(x)```
-  pub fn r#artanh(self) -> Self { self.cart(CartOp::Tan, FigOp::Hyp, false) }
+  pub fn r#artanh(self) -> Self { self.elem(ElemOp::ArTanh) }
 
   /// ```exp(x)```
   pub fn r#exp(self) -> Self { self.elem(ElemOp::Exp) }
   /// ```log(x)```
   pub fn r#log(self) -> Self { self.elem(ElemOp::Log) }
+
+  /// ```x!```
+  pub fn r#fact(self) -> Self { Self::Fun(Function::SpecExpr(Special::Fact(Box::new(self)))) }
 
   /// ```map(x_1, ..., x_n)```
   pub fn r#map(map_str: &str, arg: Vec<Expr>) -> Self {
@@ -397,8 +404,6 @@ impl Expr {
       arg,
     })
   }
-
-  fn r#cart(self, map: CartOp, fig: FigOp, ord: bool) -> Self { self.elem(ElemOp::Cart(CartExpr { map, fig, ord })) }
 
   fn r#elem(self, map: ElemOp) -> Self {
     Self::Fun(Function::ElemExpr {

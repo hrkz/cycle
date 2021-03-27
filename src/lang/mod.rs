@@ -85,7 +85,7 @@ impl Interpreter {
     match ast {
       Ast::Expr(expr) => {
         // lookup
-        Ok(Some(self.codegen(&expr)?))
+        Ok(Some(self.compose(expr)?))
       }
 
       Ast::Rule(lhs, rhs) => {
@@ -96,7 +96,7 @@ impl Interpreter {
         }
 
         if rhs.free(&lhs) {
-          let rhs = Rule { map: self.codegen(&rhs)? };
+          let rhs = Rule { map: self.compose(rhs)? };
           self.env.0.insert(
             lhs, //.
             rhs,
@@ -133,15 +133,13 @@ impl Interpreter {
     }
   }
 
-  fn transform(&self, acc: Expr, sub: &Expr) -> Expr {
+  fn substitute_rules(&self, acc: &mut Expr, sub: &Expr) {
     if let Some(res) = self.env.0.get(sub) {
       acc.subs(sub, &res.map)
-    } else {
-      acc
     }
   }
 
-  fn resolve(&self, acc: Expr, sub: &Expr) -> Result<Expr, LangError> {
+  fn resolve_definitions(&self, mut acc: Expr, sub: &Expr) -> Result<Expr, LangError> {
     match sub {
       Expr::Fun(Function::MapExpr {
         //.
@@ -157,13 +155,13 @@ impl Interpreter {
 
           let mut body = res.map.clone();
           for (arg, param) in res.arg.iter().zip(arg.iter()) {
-            body = body.subs(arg, param)
+            body.subs(arg, param)
           }
 
-          return self.codegen(&acc.subs(
-            &sub, //.
-            &body,
-          ));
+          acc.subs(&sub, &body);
+          return self.compose(
+            acc, //.
+          );
         }
       }
 
@@ -176,12 +174,14 @@ impl Interpreter {
     Ok(acc)
   }
 
-  fn codegen(&self, lhs: &Expr) -> Result<Expr, LangError> {
+  fn compose(&self, lhs: Expr) -> Result<Expr, LangError> {
     lhs.iter().fold_rec(Ok(lhs.clone()), &|acc, sub| {
+      let mut acc = acc?;
+      // substitute rules
+      self.substitute_rules(&mut acc, sub);
       // resolve definitions
-      self.resolve(
-        // transform rules
-        self.transform(acc?, sub),
+      self.resolve_definitions(
+        acc, //.
         sub,
       )
     })

@@ -19,7 +19,7 @@ pub enum Number {
 }
 
 impl Number {
-  pub fn num(&self) -> i128 {
+  pub fn num(&self) -> Integer {
     match self {
       // ```num(z) ∈ ℤ = num(z/1) ∈ ℚ = z,```
       Number::Z(z) => {
@@ -33,7 +33,7 @@ impl Number {
     }
   }
 
-  pub fn den(&self) -> i128 {
+  pub fn den(&self) -> Integer {
     match self {
       // ```den(z) ∈ ℤ = den(z/1) ∈ ℚ = 1,```
       Number::Z(z) => {
@@ -63,7 +63,7 @@ impl Number {
 
   pub fn inv(self) -> SymbolicResult<Number> { Number::Q(Rational::new(self.den(), self.num())).trivial() }
 
-  pub fn pow(self, n: i128) -> SymbolicResult<Number> {
+  pub fn pow(self, n: Integer) -> SymbolicResult<Number> {
     if self.num() != 0 {
       if n > 0 {
         // ```l^n = 1^(n - 1)*l```
@@ -95,8 +95,9 @@ impl Number {
           &q.den(),
         );
 
-        let num = q.num() / g * q.den().signum();
-        let den = q.den() / g * q.den().signum();
+        let sgn = q.den().signum();
+        let num = q.num() / g * sgn;
+        let den = q.den() / g * sgn;
 
         if den != 1 {
           Ok(Number::Q(Rational::new(num, den)))
@@ -197,7 +198,7 @@ impl fmt::Display for Form {
 /// Special constants
 pub enum Constant {
   /// \[_∞] Infinity
-  Infinity(i128),
+  Infinity(Integer),
 
   /// \[π] pi, Archimede's constant
   pi,

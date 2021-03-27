@@ -6,8 +6,8 @@ pub type Integer = i128;
 impl Domain for Integer {
   fn name(&self) -> String { String::from("ℤ") }
 
-  fn num(&self) -> i128 { *self }
-  fn den(&self) -> i128 { 1 }
+  fn num(&self) -> Integer { *self }
+  fn den(&self) -> Integer { 1 }
 
   fn gcd(u: &Self, v: &Self) -> Self {
     let u = u.abs();
@@ -54,6 +54,29 @@ impl Domain for Integer {
 }
 
 impl Ring for Integer {}
+
+pub trait Arithmetic: Domain + Copy {
+  /// ```n! = n*(n - 1)*(n - 2)*...*2*1, n ∈ ℕ```
+  fn factorial(self) -> Self;
+
+  /// ```(n k) = n! / k!(n - k)!, n, k ∈ ℕ```
+  fn binomial(
+    self, //.
+    k: Self,
+  ) -> Self {
+    self.factorial() / (k.factorial() * (self - k).factorial())
+  }
+}
+
+impl Arithmetic for Integer {
+  fn factorial(self) -> Self {
+    if self > 1 {
+      self * (self - 1).factorial()
+    } else {
+      1
+    }
+  }
+}
 
 #[cfg(test)]
 mod tests {

@@ -6,8 +6,8 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 
 #[derive(Debug, Clone, Hash, Copy)]
 pub struct Rational {
-  num: Integer,
-  den: Integer,
+  pub num: Integer,
+  pub den: Integer,
 }
 
 impl Rational {
@@ -20,13 +20,13 @@ impl Rational {
     }
   }
 
-  pub fn zero() -> Rational {
+  pub const fn zero() -> Rational {
     Rational::new(
       0, //.
       1,
     )
   }
-  pub fn one() -> Rational {
+  pub const fn one() -> Rational {
     Rational::new(
       1, //.
       1,
@@ -50,8 +50,8 @@ impl Rational {
 impl Domain for Rational {
   fn name(&self) -> String { String::from("ℚ") }
 
-  fn num(&self) -> i128 { self.num }
-  fn den(&self) -> i128 { self.den }
+  fn num(&self) -> Integer { self.num }
+  fn den(&self) -> Integer { self.den }
 
   /// ```gcd(a/b, c/d) = gcd(a*d, c*b)/(b*d)```
   fn gcd(u: &Self, v: &Self) -> Self {
@@ -124,7 +124,7 @@ impl Ord for Rational {
 }
 
 impl From<Integer> for Rational {
-  fn from(n: Integer) -> Self { Rational { num: n, den: 1 } }
+  fn from(n: Integer) -> Self { Rational::new(n, 1) }
 }
 
 impl Add for Rational {

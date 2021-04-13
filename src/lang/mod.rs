@@ -2,7 +2,7 @@ mod parse;
 mod token;
 
 pub use parse::Parser;
-pub use token::{Lexer, Token, TokenKeyword, TokenKind};
+pub use token::{Lexer, Token, TokenCal, TokenKeyword, TokenKind};
 
 use crate::{Expr, Function};
 

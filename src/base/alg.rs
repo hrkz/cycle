@@ -4,7 +4,9 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 use crate::{Constant, Expr, Form, Number, Set, SymbolicResult};
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Copy)]
-pub enum UOp {}
+pub enum UOp {
+  Id,
+}
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Copy)]
 pub enum BOp {
@@ -44,11 +46,13 @@ pub enum Algebra {
 impl Algebra {
   pub fn trivial(self) -> SymbolicResult<Expr> {
     match self {
+      Algebra::AssocExpr(expr) => Ok(expr.flatten()?.trivial()?.arity()),
+
       Algebra::UExpr {
         //.
-        map: _,
-        arg: _,
-      } => Ok(Expr::Alg(self)),
+        map: UOp::Id,
+        arg,
+      } => arg.trivial(),
 
       Algebra::BExpr {
         //.
@@ -115,6 +119,9 @@ impl Algebra {
             }
           }
 
+          // ```sqrt(-1) = (-1)^(1/2) = I```
+          //(Expr::NEG_ONE, Expr::HALF) => Ok(Expr::Cte(Constant::I)),
+
           // ```1^x = x^0 = 1```
           (Expr::ONE, _) | (_, Expr::ZERO) => Ok(Expr::ONE),
           // ```x^1 = x```
@@ -136,15 +143,6 @@ impl Algebra {
             Ok(lhs.pow(rhs)) //.
           }
         }
-      }
-
-      Algebra::AssocExpr(expr) => {
-        Ok(
-          expr //.
-            .flatten()?
-            .trivial()?
-            .arity(),
-        )
       }
     }
   }
@@ -205,9 +203,9 @@ impl fmt::Display for Algebra {
     match self {
       Algebra::UExpr {
         //.
-        map: _,
-        arg: _,
-      } => Ok(()),
+        map: UOp::Id,
+        arg,
+      } => write!(f, "Id({})", arg),
 
       Algebra::BExpr {
         //.
@@ -482,18 +480,16 @@ impl Expr {
   }
 
   /// ```b√a```
-  pub fn r#root(
-    //.
-    self,
-    o: Self,
-  ) -> Self {
-    self.pow(Expr::ONE / o)
-  }
+  pub fn r#root(self, o: Self) -> Self { self.pow(Expr::ONE / o) }
 
   /// ```√a```
   pub fn r#sqrt(self) -> Self { self.pow(Expr::HALF) }
 
-  pub fn r#assoc(map: AOp, arg: Vec<Expr>) -> Self {
+  pub(crate) fn r#assoc(
+    //.
+    map: AOp,
+    arg: Vec<Expr>,
+  ) -> Self {
     Self::Alg(Algebra::AssocExpr(Assoc {
       //.
       map,

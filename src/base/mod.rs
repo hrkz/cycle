@@ -16,6 +16,7 @@ use std::ops;
 use std::sync::Arc;
 
 use alg::{Algebra, Assoc};
+use cal::Calculus;
 use fun::{Function, Special};
 use ring::{Constant, Number, Rational, Set, SymbolicResult};
 
@@ -78,7 +79,7 @@ pub enum Expr {
   /// Functional (elementary, special)
   Fun(Function),
   // Calculus (limit, derivative, integral)
-  //Cal(Calculus),
+  Cal(Calculus),
   // Operation (expand, factor, lambda)
   //Op(Operation),
   // Sequence (sum, product)
@@ -100,7 +101,7 @@ impl Expr {
         Expr::Num => |n| Ok(Expr::Num(n.trivial()?)),
         Expr::Alg
       | Expr::Fun
-    //| Expr::Cal
+      | Expr::Cal
     //| Expr::Op
     //| Expr::Sq
         => |e| {
@@ -117,7 +118,7 @@ impl Expr {
       Expr::Num(n) => n.len(),
       Expr::Alg(_)
     | Expr::Fun(_)
-  //| Expr::Cal(_)
+    | Expr::Cal(_)
   //| Expr::Op(_)
   //| Expr::Sq(_)
       => {
@@ -135,7 +136,7 @@ impl Expr {
       Expr::Num(n) => n.dom(),
       Expr::Alg(_)
     | Expr::Fun(_)
-  //| Expr::Cal(_)
+    | Expr::Cal(_)
   //| Expr::Op(_)
   //| Expr::Sq(_)
       => {
@@ -157,7 +158,7 @@ impl Expr {
     | Expr::Num(_) => true,
       Expr::Alg(_)
     | Expr::Fun(_)
-  //| Expr::Cal(_)
+    | Expr::Cal(_)
   //| Expr::Op(_)
   //| Expr::Sq(_)
       => {
@@ -181,7 +182,7 @@ impl Expr {
     | Expr::Num(_) => *self = s.clone(),
       Expr::Alg(_)
     | Expr::Fun(_)
-  //| Expr::Cal(_)
+    | Expr::Cal(_)
   //| Expr::Op(_)
   //| Expr::Sq(_)
       => {
@@ -197,7 +198,7 @@ impl Expr {
       Expr::Sym(_) | Expr::Cte(_) | Expr::Num(_) => true,
       Expr::Alg(_)
     | Expr::Fun(_)
-  //| Expr::Cal(_)
+    | Expr::Cal(_)
   //| Expr::Op(_)
   //| Expr::Sq(_)
       => {
@@ -214,7 +215,7 @@ impl Expr {
       Expr::Alg(a) => a.ord(),
 
       Expr::Fun(_)
-  //| Expr::Cal(_)
+    | Expr::Cal(_)
   //| Expr::Op(_)
   //| Expr::Sq(_)
       => {
@@ -348,6 +349,8 @@ impl Ord for Expr {
 
       (Expr::Fun(_), _) => Ordering::Less,
       (_, Expr::Fun(_)) => Ordering::Greater,
+
+      _ => Ordering::Equal,
     }
   }
 }
@@ -429,6 +432,16 @@ impl<'e> Iter<'e> {
             arg.iter().fold(init, |acc, e| f(acc, e))
           }
         }
+      }
+
+      Expr::Cal(Calculus {
+        // n + 1
+        map: _,
+        arg,
+        var,
+      }) => {
+        //.
+        var.iter().fold(f(init, arg.as_ref()), |acc, e| f(acc, e))
       }
 
       atom => {
@@ -575,6 +588,17 @@ impl<'e> IterMut<'e> {
         }
       }
 
+      Expr::Cal(Calculus {
+        // n + 1
+        map: _,
+        arg,
+        var,
+      }) => {
+        //.
+        f(arg.as_mut());
+        var.iter_mut().for_each(|e| f(e))
+      }
+
       atom => {
         //.
         f(atom)
@@ -592,7 +616,7 @@ impl fmt::Display for Expr {
       | Expr::Num
       | Expr::Alg
       | Expr::Fun
-    //| Expr::Cal
+      | Expr::Cal
     //| Expr::Op
     //| Expr::Sq
         => |e| {

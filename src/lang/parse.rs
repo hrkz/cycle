@@ -1,4 +1,4 @@
-use crate::lang::{Ast, LangError, Lexer, Token, TokenKeyword, TokenKind};
+use crate::lang::{Ast, LangError, Lexer, Token, TokenCal, TokenKeyword, TokenKind};
 use crate::*;
 
 use std::iter::Peekable;
@@ -10,6 +10,7 @@ use std::iter::Peekable;
 /// <Primary> ::=
 ///    Number
 ///  | Symbol
+///  | <Calculus>
 ///  | <Keyword>
 ///  | <Function>
 ///  | "(" <Expr> ")"
@@ -44,7 +45,48 @@ pub struct Parser<'a> {
 impl<'a> Parser<'a> {
   pub fn parse(src: &'a str) -> Result<Ast, LangError> { Parser { tokens: Lexer::new(src).peekable() }.root() }
 
-  fn keyword(&mut self, _keyword: TokenKeyword) -> Result<Expr, LangError> { unimplemented!() }
+  fn keyword(&mut self, _keyword: TokenKeyword) -> Result<Expr, LangError> {
+    unimplemented!() //.
+  }
+
+  fn calculus(&mut self, cal: TokenCal) -> Result<Expr, LangError> {
+    //
+    // <Calculus> ::=
+    //    "∂" | "∫" "(" <Expr> ";" <Args>
+    //
+    // <Args> ::=
+    //    <Expr> <Args>
+    //  | "," <Args>
+    //  | ")"
+    //
+
+    self.next()?;
+    let sym = self.next()?;
+    if let TokenKind::LPar = sym.kind {
+      let expr = self.expr(0)?;
+      let args = if let Some(TokenKind::Semicolon) = self.peek() {
+        self.list()?
+      } else {
+        self.next()?;
+        vec![Expr::Sym(Symbol::new("_", Set::SR))]
+      };
+      Ok(match cal {
+        TokenCal::Der => Expr::derivative(expr, args),
+        TokenCal::Int => Expr::integral(expr, args),
+      })
+    } else {
+      //
+      // hints
+      //
+      // <Primary> \in [TokenKind::LPar]
+      //
+
+      Err(LangError::Expected {
+        expr: "opening parenthesis `(`, found reserved calculus symbol",
+        span: sym.span,
+      })
+    }
+  }
 
   fn function(&mut self, name: &str) -> Result<Expr, LangError> {
     //
@@ -57,6 +99,11 @@ impl<'a> Parser<'a> {
     //  | ")"
     //
 
+    let args = self.list()?;
+    Ok(Expr::map(name, args))
+  }
+
+  fn list(&mut self) -> Result<List, LangError> {
     self.next()?;
     let expr = self.expr(0)?;
     let mut arg = vec![expr];
@@ -68,7 +115,7 @@ impl<'a> Parser<'a> {
 
     let rpar = self.next()?;
     if let TokenKind::RPar = rpar.kind {
-      Ok(Expr::map(name, arg))
+      Ok(arg)
     } else {
       //
       // hints
@@ -120,6 +167,10 @@ impl<'a> Parser<'a> {
         } else {
           Ok(Expr::Sym(Symbol::new(&sym, Set::SR)))
         }
+      }
+
+      Some(TokenKind::Cal(cal)) => {
+        self.calculus(cal) //.
       }
 
       Some(TokenKind::Keyword(kw)) => {
@@ -334,6 +385,8 @@ impl<'a> Parser<'a> {
       .transpose()
   }
 }
+
+type List = Vec<Expr>;
 
 enum Primary {
   Pos,

@@ -386,6 +386,8 @@ impl Expr {
   /// ```log(x)```
   pub fn r#log(self) -> Self { self.elem(EOp::Log) }
 
+  pub(crate) fn r#elem(self, map: EOp) -> Self { Self::Fun(Function::ElemExpr { map, arg: Box::new(self) }) }
+
   /// ```x!```
   pub fn r#fact(self) -> Self { Self::Fun(Function::SpecExpr(Special::Fact(Box::new(self)))) }
 
@@ -399,14 +401,6 @@ impl Expr {
       //.
       map,
       arg,
-    })
-  }
-
-  fn r#elem(self, map: EOp) -> Self {
-    Self::Fun(Function::ElemExpr {
-      //.
-      map,
-      arg: Box::new(self),
     })
   }
 }

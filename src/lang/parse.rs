@@ -106,16 +106,16 @@ impl<'a> Parser<'a> {
   fn list(&mut self) -> Result<List, LangError> {
     self.next()?;
     let expr = self.expr(0)?;
-    let mut arg = vec![expr];
+    let mut args = vec![expr];
 
     while let Some(TokenKind::Comma) = self.peek() {
       self.next()?;
-      arg.push(self.expr(0)?);
+      args.push(self.expr(0)?);
     }
 
     let rpar = self.next()?;
     if let TokenKind::RPar = rpar.kind {
-      Ok(arg)
+      Ok(args)
     } else {
       //
       // hints

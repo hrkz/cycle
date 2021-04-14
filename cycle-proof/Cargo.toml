@@ -1,9 +1,8 @@
 [package]
-name = "cycle-play"
+name = "cycle-proof"
 version = "0.1.0"
 authors = ["hrkz <hugo.frezat@gmail.com>"]
 edition = "2018"
 
 [dependencies]
 cycle = { path = ".." }
-cycle-num = { path = "../cycle-num" }

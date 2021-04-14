@@ -30,5 +30,5 @@ doc = false
 members = [
   "cycle-eval",
   "cycle-num",
-  "cycle-play",
+  "cycle-proof",
 ]

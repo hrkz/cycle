@@ -37,7 +37,7 @@ impl Calculus {
     self
       .var
       .into_iter()
-      // compose derivatives
+      // compose
       .try_fold(*self.arg, |acc, var| {
         var.is_symbol().map_or(Err(Form {}), |var| {
           op(

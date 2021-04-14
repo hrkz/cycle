@@ -423,7 +423,7 @@ impl Primary {
   ) -> Expr {
     match (self, rhs) {
       (Primary::Pos, e) => e,
-      (Primary::Neg, Expr::Num(Number::Z(z))) => Expr::Num(Number::Z(-z)),
+      (Primary::Neg, Expr::Num(Number::Z(z))) => Expr::from(-z),
       (Primary::Neg, e) => -e,
     }
   }

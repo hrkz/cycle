@@ -607,6 +607,10 @@ impl<'e> IterMut<'e> {
   }
 }
 
+impl From<i128> for Expr {
+  fn from(num: i128) -> Self { Expr::Num(Number::Z(num)) }
+}
+
 impl fmt::Display for Expr {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match_term!(

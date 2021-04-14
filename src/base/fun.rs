@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::{Constant, Expr, Form, Number, SymbolicResult};
+use crate::{Constant, Expr, Form, SymbolicResult};
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Copy)]
 pub enum EOp {
@@ -128,7 +128,7 @@ impl Function {
           //
 
           // ```arctan(_∞) = sgn(_∞)*π/2```
-          (EOp::ArcTan, Expr::Cte(Constant::Infinity(z))) => (Expr::Num(Number::Z(z)) * Expr::Cte(Constant::pi) * Expr::HALF).trivial(),
+          (EOp::ArcTan, Expr::Cte(Constant::Infinity(z))) => (Expr::from(z) * Expr::Cte(Constant::pi) * Expr::HALF).trivial(),
 
           // ```sin(0) = arcsin(0) = 0```
           (EOp::Sin | EOp::ArcSin, Expr::ZERO) => Ok(Expr::ZERO),
@@ -164,21 +164,21 @@ impl Function {
           // ```sin(arccos(x)) = sqrt(1 - x^2)```
           // ```sin(arctan(x)) = x/sqrt(1 + x^2)```
           (EOp::Sin, Expr::Fun(Function::ElemExpr { map: EOp::ArcSin, arg })) => Ok(*arg),
-          (EOp::Sin, Expr::Fun(Function::ElemExpr { map: EOp::ArcCos, arg })) => Expr::sqrt(Expr::ONE - arg.pow(Expr::Num(Number::Z(2)))).trivial(),
-          (EOp::Sin, Expr::Fun(Function::ElemExpr { map: EOp::ArcTan, arg })) => (*arg.clone() / Expr::sqrt(Expr::ONE + arg.pow(Expr::Num(Number::Z(2))))).trivial(),
+          (EOp::Sin, Expr::Fun(Function::ElemExpr { map: EOp::ArcCos, arg })) => Expr::sqrt(Expr::ONE - arg.pow(Expr::from(2))).trivial(),
+          (EOp::Sin, Expr::Fun(Function::ElemExpr { map: EOp::ArcTan, arg })) => (*arg.clone() / Expr::sqrt(Expr::ONE + arg.pow(Expr::from(2)))).trivial(),
 
           // ```cos(arcsin(x)) = sqrt(1 - x^2)```
           // ```cos(arccos(x)) = x```
           // ```cos(arctan(x)) = 1/sqrt(1 + x^2)```
-          (EOp::Cos, Expr::Fun(Function::ElemExpr { map: EOp::ArcSin, arg })) => Expr::sqrt(Expr::ONE - arg.pow(Expr::Num(Number::Z(2)))).trivial(),
+          (EOp::Cos, Expr::Fun(Function::ElemExpr { map: EOp::ArcSin, arg })) => Expr::sqrt(Expr::ONE - arg.pow(Expr::from(2))).trivial(),
           (EOp::Cos, Expr::Fun(Function::ElemExpr { map: EOp::ArcCos, arg })) => Ok(*arg),
-          (EOp::Cos, Expr::Fun(Function::ElemExpr { map: EOp::ArcTan, arg })) => (Expr::ONE / Expr::sqrt(Expr::ONE + arg.pow(Expr::Num(Number::Z(2))))).trivial(),
+          (EOp::Cos, Expr::Fun(Function::ElemExpr { map: EOp::ArcTan, arg })) => (Expr::ONE / Expr::sqrt(Expr::ONE + arg.pow(Expr::from(2)))).trivial(),
 
           // ```tan(arcsin(x)) = x/(sqrt(1 - x^2))```
           // ```tan(arccos(x)) = sqrt(1 - x^2)/x```
           // ```tan(arctan(x)) = x```
-          (EOp::Tan, Expr::Fun(Function::ElemExpr { map: EOp::ArcSin, arg })) => (*arg.clone() / Expr::sqrt(Expr::ONE - arg.pow(Expr::Num(Number::Z(2))))).trivial(),
-          (EOp::Tan, Expr::Fun(Function::ElemExpr { map: EOp::ArcCos, arg })) => (Expr::sqrt(Expr::ONE - arg.clone().pow(Expr::Num(Number::Z(2)))) / *arg).trivial(),
+          (EOp::Tan, Expr::Fun(Function::ElemExpr { map: EOp::ArcSin, arg })) => (*arg.clone() / Expr::sqrt(Expr::ONE - arg.pow(Expr::from(2)))).trivial(),
+          (EOp::Tan, Expr::Fun(Function::ElemExpr { map: EOp::ArcCos, arg })) => (Expr::sqrt(Expr::ONE - arg.clone().pow(Expr::from(2))) / *arg).trivial(),
           (EOp::Tan, Expr::Fun(Function::ElemExpr { map: EOp::ArcTan, arg })) => Ok(*arg),
 
           // [Hyperbolic identities](https://en.wikipedia.org/wiki/Hyperbolic_functions#Useful_relations)
@@ -215,8 +215,8 @@ impl Function {
           (EOp::Cosh | EOp::ArCosh, Expr::Cte(Constant::Infinity(_))) => Ok(Expr::Cte(Constant::Infinity(1))),
           // ```tanh(_∞) = sgn(_∞)```
           // ```artanh(_∞) = -sgn(_∞)*π*I/2```
-          (EOp::Tanh, Expr::Cte(Constant::Infinity(z))) => Ok(Expr::Num(Number::Z(z))),
-          (EOp::ArTanh, Expr::Cte(Constant::Infinity(z))) => (Expr::Num(Number::Z(-z)) * Expr::Cte(Constant::pi) * Expr::Cte(Constant::I) * Expr::HALF).trivial(),
+          (EOp::Tanh, Expr::Cte(Constant::Infinity(z))) => Ok(Expr::from(z)),
+          (EOp::ArTanh, Expr::Cte(Constant::Infinity(z))) => (Expr::from(-z) * Expr::Cte(Constant::pi) * Expr::Cte(Constant::I) * Expr::HALF).trivial(),
 
           // ```sinh(0) = arsinh(0) = 0```
           (EOp::Sinh | EOp::ArSinh, Expr::ZERO) => Ok(Expr::ZERO),
@@ -237,19 +237,19 @@ impl Function {
           // ```sinh(artanh(x)) = x/sqrt(1 - x^2)```
           (EOp::Sinh, Expr::Fun(Function::ElemExpr { map: EOp::ArSinh, arg })) => Ok(*arg),
           (EOp::Sinh, Expr::Fun(Function::ElemExpr { map: EOp::ArCosh, arg })) => (Expr::sqrt(*arg.clone() - Expr::ONE) * Expr::sqrt(*arg + Expr::ONE)).trivial(),
-          (EOp::Sinh, Expr::Fun(Function::ElemExpr { map: EOp::ArTanh, arg })) => (*arg.clone() / Expr::sqrt(Expr::ONE - arg.pow(Expr::Num(Number::Z(2))))).trivial(),
+          (EOp::Sinh, Expr::Fun(Function::ElemExpr { map: EOp::ArTanh, arg })) => (*arg.clone() / Expr::sqrt(Expr::ONE - arg.pow(Expr::from(2)))).trivial(),
 
           // ```cosh(arsinh(x)) = sqrt(1 + x^2)```
           // ```cosh(arcosh(x)) = x```
           // ```cosh(artanh(x)) = 1/sqrt(1 - x^2)```
-          (EOp::Cosh, Expr::Fun(Function::ElemExpr { map: EOp::ArSinh, arg })) => Expr::sqrt(Expr::ONE + arg.pow(Expr::Num(Number::Z(2)))).trivial(),
+          (EOp::Cosh, Expr::Fun(Function::ElemExpr { map: EOp::ArSinh, arg })) => Expr::sqrt(Expr::ONE + arg.pow(Expr::from(2))).trivial(),
           (EOp::Cosh, Expr::Fun(Function::ElemExpr { map: EOp::ArCosh, arg })) => Ok(*arg),
-          (EOp::Cosh, Expr::Fun(Function::ElemExpr { map: EOp::ArTanh, arg })) => (Expr::ONE / Expr::sqrt(Expr::ONE - arg.pow(Expr::Num(Number::Z(2))))).trivial(),
+          (EOp::Cosh, Expr::Fun(Function::ElemExpr { map: EOp::ArTanh, arg })) => (Expr::ONE / Expr::sqrt(Expr::ONE - arg.pow(Expr::from(2)))).trivial(),
 
           // ```tanh(arsinh(x)) = x/(sqrt(1 + x^2))```
           // ```tanh(arcosh(x)) = sqrt(x - 1)*sqrt(x + 1)/x```
           // ```tanh(artanh(x)) = x```
-          (EOp::Tanh, Expr::Fun(Function::ElemExpr { map: EOp::ArSinh, arg })) => (*arg.clone() / Expr::sqrt(Expr::ONE + arg.pow(Expr::Num(Number::Z(2))))).trivial(),
+          (EOp::Tanh, Expr::Fun(Function::ElemExpr { map: EOp::ArSinh, arg })) => (*arg.clone() / Expr::sqrt(Expr::ONE + arg.pow(Expr::from(2)))).trivial(),
           (EOp::Tanh, Expr::Fun(Function::ElemExpr { map: EOp::ArCosh, arg })) => (Expr::sqrt(*arg.clone() - Expr::ONE) * Expr::sqrt(*arg.clone() + Expr::ONE) / *arg).trivial(),
           (EOp::Tanh, Expr::Fun(Function::ElemExpr { map: EOp::ArTanh, arg })) => Ok(*arg),
 
@@ -274,7 +274,7 @@ impl Function {
           (EOp::Log, Expr::ONE) => Ok(Expr::ZERO),
 
           // ```log(1/x) = -log(x), x ∈ ℕ```
-          (EOp::Log, Expr::Num(rhs)) if rhs.num().eq(&1) => Ok(-Expr::log(Expr::Num(Number::Z(rhs.den())))),
+          (EOp::Log, Expr::Num(rhs)) if rhs.num().eq(&1) => Ok(-Expr::log(Expr::from(rhs.den()))),
 
           (map, arg) => {
             Ok(arg.elem(map)) //.

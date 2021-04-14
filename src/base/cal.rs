@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::{Expr, Form, Number, Symbol, SymbolicResult};
+use crate::{Expr, Form, Symbol, SymbolicResult};
 
 use crate::base::{
   alg::{AOp, Algebra, Assoc, BOp, UOp},
@@ -133,28 +133,28 @@ impl Calculus {
               // ```∂(tan(f))/∂x = 1/cos(f)^2```
               EOp::Sin => arg.cos(),
               EOp::Cos => -arg.sin(),
-              EOp::Tan => arg.cos().pow(Expr::Num(Number::Z(-2))),
+              EOp::Tan => arg.cos().pow(Expr::from(-2)),
 
               // ```∂(arcsin(f))/∂x = 1/sqrt(1 - f^2)```
               // ```∂(arccos(f))/∂x = -1/sqrt(1 - f^2)```
               // ```∂(arctan(f))/∂x = 1/(1 + f^2)```
-              EOp::ArcSin => Expr::ONE / Expr::sqrt(Expr::ONE - arg.pow(Expr::Num(Number::Z(2)))),
-              EOp::ArcCos => Expr::NEG_ONE / Expr::sqrt(Expr::ONE - arg.pow(Expr::Num(Number::Z(2)))),
-              EOp::ArcTan => Expr::ONE / (Expr::ONE + arg.pow(Expr::Num(Number::Z(2)))),
+              EOp::ArcSin => Expr::ONE / Expr::sqrt(Expr::ONE - arg.pow(Expr::from(2))),
+              EOp::ArcCos => Expr::NEG_ONE / Expr::sqrt(Expr::ONE - arg.pow(Expr::from(2))),
+              EOp::ArcTan => Expr::ONE / (Expr::ONE + arg.pow(Expr::from(2))),
 
               // ```∂(sinh(f))/∂x = cosh(f)```
               // ```∂(cosh(f))/∂x = sinh(f)```
               // ```∂(tanh(f))/∂x = 1/cosh^2(f)```
               EOp::Sinh => arg.cosh(),
               EOp::Cosh => arg.sinh(),
-              EOp::Tanh => arg.cosh().pow(Expr::Num(Number::Z(-2))),
+              EOp::Tanh => arg.cosh().pow(Expr::from(-2)),
 
               // ```∂(arsinh(f))/∂x = 1/sqrt(1 + f^2)```
               // ```∂(arcosh(f))/∂x = 1/(sqrt(f - 1)*sqrt(f + 1))```
               // ```∂(artanh(f))/∂x = 1/(1 - f^2)```
-              EOp::ArSinh => Expr::ONE / Expr::sqrt(Expr::ONE + arg.pow(Expr::Num(Number::Z(2)))),
+              EOp::ArSinh => Expr::ONE / Expr::sqrt(Expr::ONE + arg.pow(Expr::from(2))),
               EOp::ArCosh => Expr::ONE / (Expr::sqrt(*arg.clone() - Expr::ONE) * Expr::sqrt(*arg + Expr::ONE)),
-              EOp::ArTanh => Expr::ONE / (Expr::ONE - arg.pow(Expr::Num(Number::Z(2)))),
+              EOp::ArTanh => Expr::ONE / (Expr::ONE - arg.pow(Expr::from(2))),
 
               // ```∂(exp(f))/∂x = exp(f)```
               // ```∂(log(f))/∂x = 1/f```

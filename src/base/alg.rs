@@ -1,7 +1,7 @@
 use std::fmt;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
-use crate::{Constant, Expr, Form, Number, Set, SymbolicResult};
+use crate::{Constant, Expr, Form, Number, Rational, Set, SymbolicResult};
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Copy)]
 pub enum UOp {
@@ -128,10 +128,35 @@ impl Algebra {
           (lhs, Expr::ONE) => Ok(lhs),
 
           // ```x ∈ ℚ, y ∈ ℤ```
-          (Expr::Num(lhs), Expr::Num(Number::Z(rhs))) => Ok(Expr::Num(lhs.pow(rhs)?)),
+          (Expr::Num(lhs), Expr::Num(Number::Z(rhs))) => Ok(Expr::Num(lhs.powi(rhs)?)),
+          // ```x ∈ ℤ, y ∈ ℚ```
+          (Expr::Num(Number::Z(lhs)), Expr::Num(rhs)) => match rhs.clone().try_root(lhs.abs()) {
+            Some(Number::Z(1)) | None => Ok(Expr::from(lhs).pow(Expr::Num(rhs))),
+            Some(root) => {
+              let root = Expr::Num(root);
+
+              if lhs.is_negative() {
+                // ```(-x)^y = x^y*(-1)^y```
+                let (
+                  //.
+                  i,
+                  r,
+                ) = rhs.divmod();
+                if i != 0 {
+                  // ```(-x)^(p/q) = x^(p/q)*(-1)^div(p, q)*(-1)^(mod(p, q)/q)```
+                  (root * Expr::NEG_ONE.pow(Expr::from(i)) * Expr::NEG_ONE.pow(Expr::Num(Number::Q(Rational::new(r, rhs.den()))))).trivial()
+                } else {
+                  // ```(-x)^(p/q) = x^(p/q)*(-1)^(p/q)```
+                  (root * Expr::NEG_ONE.pow(Expr::Num(rhs))).trivial()
+                }
+              } else {
+                Ok(root)
+              }
+            }
+          },
 
           // ```(b^e)^y = b^(e*y), y ∈ ℤ```
-          (Expr::Alg(Algebra::BExpr { map: BOp::Pow, arg: (b, e) }), rhs) if rhs.dom().le(&Set::Z) => b.pow(e.mul(rhs).trivial()?).trivial(),
+          (Expr::Alg(Algebra::BExpr { map: BOp::Pow, arg: (b, e) }), rhs) if rhs.dom().le(&Set::Z) => b.pow(e.mul(rhs)).trivial(),
 
           // ```(x_1*x_2*...*x_n)^y = x_1^y*x_2^y*...*x_n^y, y ∈ ℤ```
           (Expr::Alg(Algebra::AssocExpr(Assoc { map: AOp::Mul, arg })), Expr::Num(rhs)) if rhs.dom().le(&Set::Z) => {

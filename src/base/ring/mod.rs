@@ -3,6 +3,7 @@ mod num_rational;
 mod poly;
 mod repr;
 
+use std::cmp::Ordering;
 use std::fmt;
 use std::ops::{Add, Mul};
 
@@ -47,7 +48,7 @@ impl Number {
     }
   }
 
-  pub fn len(&self) -> u64 { 1 + (self.den() != 1) as u64 }
+  pub fn len(&self) -> u64 { 1 + (self.den() != 1 || self.num().is_negative()) as u64 }
 
   pub fn dom(&self) -> Set {
     if self.den() != 1 {
@@ -61,16 +62,18 @@ impl Number {
     }
   }
 
+  pub fn divmod(&self) -> (Integer, Integer) { (self.num().div_euclid(self.den()), self.num().rem_euclid(self.den())) }
+
   pub fn inv(self) -> SymbolicResult<Number> { Number::Q(Rational::new(self.den(), self.num())).trivial() }
 
-  pub fn pow(self, n: Integer) -> SymbolicResult<Number> {
+  pub fn powi(self, n: Integer) -> SymbolicResult<Number> {
     if self.num() != 0 {
       if n > 0 {
         // ```l^n = 1^(n - 1)*l```
-        self.clone().pow(n - 1)?.mul(self)
+        self.clone().powi(n - 1)?.mul(self)
       } else if n < 0 {
         // ```l^-n = (1/l)^n```
-        self.inv()?.pow(-n)
+        self.inv()?.powi(-n)
       } else {
         Ok(Number::Z(1))
       }
@@ -79,6 +82,34 @@ impl Number {
         Ok(Number::Z(0))
       } else {
         Err(Form {})
+      }
+    }
+  }
+
+  pub fn try_root(self, x: Integer) -> Option<Number> {
+    let n = self.den().abs() as u32;
+    let m = self.num();
+
+    let mut l = 0i128;
+    let mut u = 1i128;
+    while u.pow(n) <= x {
+      l = u;
+      u *= 2;
+    }
+
+    loop {
+      let step = (u - l) / 2;
+      let root = l + step;
+      let test = root.pow(n);
+
+      match test.cmp(&x) {
+        Ordering::Equal => return Number::Z(root).powi(m).ok(),
+        Ordering::Less => l = root,
+        Ordering::Greater => u = root,
+      }
+
+      if step < 1 {
+        return None;
       }
     }
   }

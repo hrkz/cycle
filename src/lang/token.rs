@@ -20,9 +20,6 @@ pub enum TokenKind<'a> {
   Semicolon,
   Rule,
   Def,
-  // Math
-  Cal(TokenCal),
-  Seq(TokenSeq),
   // Lang
   Keyword(TokenKeyword),
 }
@@ -41,7 +38,9 @@ pub enum TokenSeq {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TokenKeyword {
-  // Operators
+  // Math
+  Cal(TokenCal),
+  Seq(TokenSeq),
 }
 
 #[derive(Debug, Clone)]
@@ -158,10 +157,10 @@ impl<'a> Lexer<'a> {
       ":=" => TokenKind::Rule,
       "=" => TokenKind::Def,
 
-      "∂" => TokenKind::Cal(TokenCal::Der),
-      "∫" => TokenKind::Cal(TokenCal::Int),
-      "∑" => TokenKind::Seq(TokenSeq::Sum),
-      "∏" => TokenKind::Seq(TokenSeq::Prod),
+      "∂" => TokenKind::Keyword(TokenKeyword::Cal(TokenCal::Der)),
+      "∫" => TokenKind::Keyword(TokenKeyword::Cal(TokenCal::Int)),
+      "∑" => TokenKind::Keyword(TokenKeyword::Seq(TokenSeq::Sum)),
+      "∏" => TokenKind::Keyword(TokenKeyword::Seq(TokenSeq::Prod)),
 
       _ => {
         return Err(LangError::Lex); //.

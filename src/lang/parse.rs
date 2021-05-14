@@ -10,7 +10,6 @@ use std::iter::Peekable;
 /// <Primary> ::=
 ///    Number
 ///  | Symbol
-///  | <Calculus>
 ///  | <Keyword>
 ///  | <Function>
 ///  | "(" <Expr> ")"
@@ -45,35 +44,32 @@ pub struct Parser<'a> {
 impl<'a> Parser<'a> {
   pub fn parse(src: &'a str) -> Result<Ast, LangError> { Parser { tokens: Lexer::new(src).peekable() }.root() }
 
-  fn keyword(&mut self, _keyword: TokenKeyword) -> Result<Expr, LangError> {
-    unimplemented!() //.
-  }
-
-  fn calculus(&mut self, cal: TokenCal) -> Result<Expr, LangError> {
-    //
-    // <Calculus> ::=
-    //    "∂" | "∫" "(" <Expr> ";" <Args>
-    //
-    // <Args> ::=
-    //    <Expr> <Args>
-    //  | "," <Args>
-    //  | ")"
-    //
-
+  fn keyword(&mut self, keyword: TokenKeyword) -> Result<Expr, LangError> {
     self.next()?;
-    let sym = self.next()?;
-    if let TokenKind::LPar = sym.kind {
-      let expr = self.expr(0)?;
-      let args = if let Some(TokenKind::Semicolon) = self.peek() {
-        self.list()?
-      } else {
-        self.next()?;
-        vec![Expr::Sym(Symbol::new("_", Set::SR))]
-      };
-      Ok(match cal {
-        TokenCal::Der => Expr::derivative(expr, args),
-        TokenCal::Int => Expr::integral(expr, args),
-      })
+    if let Some(TokenKind::LPar) = self.peek() {
+      let mut args = self.list()?;
+
+      match keyword {
+        TokenKeyword::Cal(cal) => {
+          //
+          // <Calculus> ::=
+          //    "∂" | "∫" "(" <Expr> "," <Args>
+          //
+          // <Args> ::=
+          //    <Expr> <Args>
+          //  | "," <Args>
+          //  | ")"
+          //
+
+          let expr = args.remove(0);
+          Ok(match cal {
+            TokenCal::Der => Expr::derivative(expr, args),
+            TokenCal::Int => Expr::integral(expr, args),
+          })
+        }
+
+        TokenKeyword::Seq(_seq) => unimplemented!(),
+      }
     } else {
       //
       // hints
@@ -81,9 +77,8 @@ impl<'a> Parser<'a> {
       // <Primary> \in [TokenKind::LPar]
       //
 
-      Err(LangError::Expected {
-        expr: "opening parenthesis `(`, found reserved calculus symbol",
-        span: sym.span,
+      Err(LangError::Rule {
+        rule: format!("reserved keyword {:?} can only be used as an operator", keyword),
       })
     }
   }
@@ -167,10 +162,6 @@ impl<'a> Parser<'a> {
         } else {
           Ok(Expr::Sym(Symbol::new(&sym, Set::SR)))
         }
-      }
-
-      Some(TokenKind::Cal(cal)) => {
-        self.calculus(cal) //.
       }
 
       Some(TokenKind::Keyword(kw)) => {

@@ -35,7 +35,7 @@ $ git clone https://github.com/hrkz/cycle && cd cycle
 
 # Start the compilation and download dependencies
 $ cargo build
-$ cargo test # Run tests (optional)
+$ cargo test --examples # Test the examples (optional)
 $ cargo run # Run the interpreter (optional)
 ```
 or with the crate

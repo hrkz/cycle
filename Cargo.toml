@@ -24,11 +24,9 @@ cycle_plot = []
 name = "omega"
 path = "bin/omega.rs"
 test = false
-doc = false
 
 [workspace]
 members = [
-  "cycle-eval",
-  "cycle-num",
-  "cycle-proof",
+  "crates/cycle-num",
+  "crates/cycle-proof",
 ]

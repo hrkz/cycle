@@ -36,7 +36,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --workspace
+          args: --tests --examples
 
       - name: Formatting
         uses: actions-rs/cargo@v1

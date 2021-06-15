@@ -77,43 +77,38 @@ impl Calculus {
             (lhs.clone().pow(*rhs.clone()) * (dr * lhs.clone().log() + dl * *rhs / *lhs)).trivial()
           }
 
+          // sum rule
+          // ```∂(f_1 + f_2 + ... + f_n)/∂x = ∂f_1/∂x + ∂f_2/∂x + ... + ∂f_n/∂x```
           Algebra::AssocExpr(Assoc {
             //.
-            map,
+            map: AOp::Add,
             arg,
           }) => {
-            match map {
-              // sum rule
-              // ```∂(f_1 + f_2 + ... + f_n)/∂x = ∂f_1/∂x + ∂f_2/∂x + ... + ∂f_n/∂x```
-              AOp::Add => {
-                let sdxi: Result<Vec<_>, _> = arg.into_iter().map(|sub| Self::differentiate(sub, part)).collect();
+            let sdxi: Result<Vec<_>, _> = arg.into_iter().map(|sub| Self::differentiate(sub, part)).collect();
+            Expr::assoc(AOp::Add, sdxi?).trivial()
+          }
 
-                Expr::assoc(
-                  AOp::Add, //.
-                  sdxi?,
-                )
-              }
+          // product rule
+          // ```∂(f_1*f_2*...*f_n)/∂x = ∂f_1/∂x*(f_2*...*f_n) + ∂f_2/∂x*(f_1*f_3*...*f_n) + ... + ∂f_n/∂x*(f_1*...*f_n - 1)```
+          Algebra::AssocExpr(Assoc {
+            //.
+            map: AOp::Mul,
+            arg,
+          }) => {
+            let pdxi: Result<Vec<_>, _> = arg
+              .iter()
+              .enumerate()
+              .map(|(i, sub)| {
+                let mut prod = arg.clone();
+                prod[i] = Self::differentiate(sub.clone(), part)?;
+                Ok(Expr::assoc(AOp::Mul, prod).trivial()?)
+              })
+              .collect();
 
-              // product rule
-              // ```∂(f_1*f_2*...*f_n)/∂x = ∂f_1/∂x*(f_2*...*f_n) + ∂f_2/∂x*(f_1*f_3*...*f_n) + ... + ∂f_n/∂x*(f_1*...*f_n - 1)```
-              AOp::Mul => {
-                let pdxi: Result<Vec<_>, _> = arg
-                  .clone()
-                  .into_iter()
-                  .enumerate()
-                  .map(|(i, sub)| {
-                    let mut prod = arg.clone();
-                    prod[i] = Self::differentiate(sub, part)?;
-                    Ok(Expr::assoc(AOp::Mul, prod))
-                  })
-                  .collect();
-
-                Expr::assoc(
-                  AOp::Add, //.
-                  pdxi?,
-                )
-              }
-            }
+            Expr::assoc(
+              AOp::Add, //.
+              pdxi?,
+            )
             .trivial()
           }
         }
@@ -124,46 +119,43 @@ impl Calculus {
         map,
         arg,
       }) => {
-        arg
-          .clone()
-          .chain_rule(
-            match map {
-              // ```∂(sin(f))/∂x = cos(f)```
-              // ```∂(cos(f))/∂x = -sin(f)```
-              // ```∂(tan(f))/∂x = 1/cos(f)^2```
-              EOp::Sin => arg.cos(),
-              EOp::Cos => -arg.sin(),
-              EOp::Tan => arg.cos().pow(Expr::from(-2)),
+        let comp = arg.clone();
+        let diff = match map {
+          // ```∂(sin(f))/∂x = cos(f)```
+          // ```∂(cos(f))/∂x = -sin(f)```
+          // ```∂(tan(f))/∂x = 1/cos(f)^2```
+          EOp::Sin => arg.cos(),
+          EOp::Cos => -arg.sin(),
+          EOp::Tan => arg.cos().pow(Expr::from(-2)),
 
-              // ```∂(arcsin(f))/∂x = 1/sqrt(1 - f^2)```
-              // ```∂(arccos(f))/∂x = -1/sqrt(1 - f^2)```
-              // ```∂(arctan(f))/∂x = 1/(1 + f^2)```
-              EOp::ArcSin => Expr::ONE / Expr::sqrt(Expr::ONE - arg.pow(Expr::from(2))),
-              EOp::ArcCos => Expr::NEG_ONE / Expr::sqrt(Expr::ONE - arg.pow(Expr::from(2))),
-              EOp::ArcTan => Expr::ONE / (Expr::ONE + arg.pow(Expr::from(2))),
+          // ```∂(arcsin(f))/∂x = 1/sqrt(1 - f^2)```
+          // ```∂(arccos(f))/∂x = -1/sqrt(1 - f^2)```
+          // ```∂(arctan(f))/∂x = 1/(1 + f^2)```
+          EOp::ArcSin => Expr::ONE / Expr::sqrt(Expr::ONE - arg.pow(Expr::from(2))),
+          EOp::ArcCos => Expr::NEG_ONE / Expr::sqrt(Expr::ONE - arg.pow(Expr::from(2))),
+          EOp::ArcTan => Expr::ONE / (Expr::ONE + arg.pow(Expr::from(2))),
 
-              // ```∂(sinh(f))/∂x = cosh(f)```
-              // ```∂(cosh(f))/∂x = sinh(f)```
-              // ```∂(tanh(f))/∂x = 1/cosh^2(f)```
-              EOp::Sinh => arg.cosh(),
-              EOp::Cosh => arg.sinh(),
-              EOp::Tanh => arg.cosh().pow(Expr::from(-2)),
+          // ```∂(sinh(f))/∂x = cosh(f)```
+          // ```∂(cosh(f))/∂x = sinh(f)```
+          // ```∂(tanh(f))/∂x = 1/cosh^2(f)```
+          EOp::Sinh => arg.cosh(),
+          EOp::Cosh => arg.sinh(),
+          EOp::Tanh => arg.cosh().pow(Expr::from(-2)),
 
-              // ```∂(arsinh(f))/∂x = 1/sqrt(1 + f^2)```
-              // ```∂(arcosh(f))/∂x = 1/(sqrt(f - 1)*sqrt(f + 1))```
-              // ```∂(artanh(f))/∂x = 1/(1 - f^2)```
-              EOp::ArSinh => Expr::ONE / Expr::sqrt(Expr::ONE + arg.pow(Expr::from(2))),
-              EOp::ArCosh => Expr::ONE / (Expr::sqrt(*arg.clone() - Expr::ONE) * Expr::sqrt(*arg + Expr::ONE)),
-              EOp::ArTanh => Expr::ONE / (Expr::ONE - arg.pow(Expr::from(2))),
+          // ```∂(arsinh(f))/∂x = 1/sqrt(1 + f^2)```
+          // ```∂(arcosh(f))/∂x = 1/(sqrt(f - 1)*sqrt(f + 1))```
+          // ```∂(artanh(f))/∂x = 1/(1 - f^2)```
+          EOp::ArSinh => Expr::ONE / Expr::sqrt(Expr::ONE + arg.pow(Expr::from(2))),
+          EOp::ArCosh => Expr::ONE / (Expr::sqrt(*arg.clone() - Expr::ONE) * Expr::sqrt(*arg + Expr::ONE)),
+          EOp::ArTanh => Expr::ONE / (Expr::ONE - arg.pow(Expr::from(2))),
 
-              // ```∂(exp(f))/∂x = exp(f)```
-              // ```∂(log(f))/∂x = 1/f```
-              EOp::Exp => arg.exp(),
-              EOp::Log => Expr::ONE / *arg,
-            },
-            part,
-          )?
-          .trivial()
+          // ```∂(exp(f))/∂x = exp(f)```
+          // ```∂(log(f))/∂x = 1/f```
+          EOp::Exp => arg.exp(),
+          EOp::Log => Expr::ONE / *arg,
+        };
+
+        comp.chain_rule(diff, part)?.trivial()
       }
 
       Expr::Cal(Calculus {
@@ -201,7 +193,7 @@ impl fmt::Display for Calculus {
       write!(
         //.
         f,
-        "{}({}; {})",
+        "{}({}, {})",
         self.map,
         self.arg,
         var
@@ -215,12 +207,12 @@ impl fmt::Display for Calculus {
 impl fmt::Display for CalOp {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match self {
-      // ```∂(f; x_1, x_2, ..., x_n)```
+      // ```∂(f, x_1, x_2, ..., x_n)```
       CalOp::Der => write!(
         f,
         "∂" //.
       ),
-      // ```∫(f; x_1, x_2, ..., x_n)```
+      // ```∫(f, x_1, x_2, ..., x_n)```
       CalOp::Int => write!(
         f,
         "∫" //.

@@ -314,7 +314,7 @@ impl Assoc {
   fn arity(mut self) -> Expr {
     match self.arg.len() {
       0 => self.id(),
-      1 => self.arg.swap_remove(0),
+      1 => self.arg.remove(0),
 
       _ => {
         Expr::assoc(
@@ -352,6 +352,8 @@ impl Assoc {
 
           // ```x + _∞ = _∞```
           (AOp::Add, _, Expr::Cte(Constant::Infinity(z))) | (AOp::Add, Expr::Cte(Constant::Infinity(z)), _) => self.arg.push(Expr::Cte(Constant::Infinity(z))),
+          // ```x*~∞ = ~∞```
+          (AOp::Mul, _, Expr::Cte(Constant::Infinity(0))) | (AOp::Mul, Expr::Cte(Constant::Infinity(0)), _) => self.arg.push(Expr::Cte(Constant::Infinity(0))),
 
           // ```_x ∞*_y ∞ = sgn(_x*_y)∞```
           (AOp::Mul, Expr::Cte(Constant::Infinity(lhs)), Expr::Cte(Constant::Infinity(rhs))) => self.arg.push(Expr::Cte(Constant::Infinity(lhs.mul(rhs)))),

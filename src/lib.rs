@@ -1,28 +1,28 @@
 //!
-//! Cycle - Mathematical modeling using symbolic trees
-//!
-//! Cycle is a symbolic mathematics and modeling library based on expression trees that
-//! focuses on numerical analysis and find applications in physics, astronomy, biology,
-//! artificial intelligence and many more.
-//!
-//! ## Motivation
-//!
-//! Cycle's main objective is to help researchers from different areas to design models
-//! and build numerical simulations in a pleasant way, with performance and modularity.
+//! Cycle is a **symbolic** mathematics library based on expression trees that focuses on correct,
+//! flexible and **comprehensive** manipulation of mathematical objects. Cycle can be used to study
+//! elementary and advanced mathematics, mostly in applied domains. It is in particular well suited
+//! for education and research in many areas, including for example physics, astronomy, biology and
+//! artificial intelligence.
 //!
 //! ## Usage
 //!
-//! Import `cycle` in your `Cargo.toml` file:
+//! To use cycle, you will need a modern [Rust](https://www.rust-lang.org/) version with [Cargo](https://doc.rust-lang.org/stable/cargo/)
+//! for the compilation and testing,
 //!
 //! ```toml
 //! [dependencies]
 //! cycle = "0.2.1"
 //! ```
 //!
-//! ## Wiki
+//! ## Getting started
 //!
-//! The library is in its early stages and the wiki as well as the scientific document are
-//! currently not available.
+//! An extensive tutorial is currently under construction, but you can read the [online documentation](https://docs.rs/cycle)
+//! for the latest release. Note that the library is still in an early phase and API changes are expected.
+//!
+//! ## Citing
+//!
+//! We acknowledge the importance of reproducible research, in particular through open-access software. If you used Cycle, we ask that you cite the project in your work.
 //!
 
 #[doc(hidden)]

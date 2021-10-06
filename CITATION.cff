@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: "We acknowledge the importance of reproducible research, in particular through open-access software. If you used Cycle, we ask that you cite the project in your work."
+title: "Cycle: modern and safe symbolic mathematics"
+authors:
+- family-names: "Frezat"
+  given-names: "Hugo"
+version: 0.2.1
+date-released: 2021-02-23
+licence: MIT
+repository-code: "https://github.com/hrkz/cycle"

@@ -6,16 +6,16 @@ Cycle: modern and safe symbolic mathematics
 [![License](https://img.shields.io/github/license/hrkz/cycle.svg?color=informational&style=flat-square)](https://github.com/hrkz/cycle/blob/master/LICENSE)
 [![Milestones](https://img.shields.io/github/milestones/open/hrkz/cycle?label=milestones&style=flat-square)](https://github.com/hrkz/cycle/milestones)
 
-### Table of contents
+![Sketch](https://github.com/hrkz/cycle/blob/gh-pages/images/cycle_graph.png)
+
+Cycle is a **symbolic** mathematics library based on expression trees that focuses on correct, flexible and **comprehensive** manipulation of mathematical objects. Cycle can be used to study elementary and advanced mathematics, mostly in applied domains. It is in particular well suited for education and research in many areas, including for example physics, astronomy, biology and artificial intelligence.
+
+#### Try the [online notebook](https://hrkz.github.io/omega/) running on WebAssembly.
 
 * [Website](#)
 * [Usage](#usage)
 * [Getting started](#getting-started)
 * [Citing](#citing)
-
-Cycle is a **symbolic** mathematics library based on expression trees that focuses on correct, flexible and **comprehensive** manipulation of mathematical objects. Cycle can be used to study elementary and advanced mathematics, mostly in applied domains. It is in particular well suited for education and research in many areas, including for example physics, astronomy, biology and artificial intelligence.
-
-#### Try the [online notebook](https://hrkz.github.io/omega/) running on WebAssembly.
 
 ## Usage
 

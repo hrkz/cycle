@@ -38,7 +38,7 @@ impl Calculus {
       .var
       .into_iter()
       // compose
-      .try_fold(self.arg.trivial()?, |acc, var| {
+      .try_fold(*self.arg, |acc, var| {
         var.is_symbol().map_or(Err(Form {}), |var| {
           op(
             acc, //.

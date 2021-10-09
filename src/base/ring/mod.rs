@@ -247,7 +247,7 @@ pub enum Constant {
   Apery,
 
   /// \[i] Imaginary number
-  I,
+  i,
 }
 
 impl fmt::Display for Constant {

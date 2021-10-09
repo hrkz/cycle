@@ -48,8 +48,8 @@ macro_rules!
 match_term {
   ($m:expr ,{
     $(
-      $($v:path)|* =>
-        |$i:pat| $a:expr
+      $($v:path)|* [$i:pat]
+        => $a:expr
      ),*
   }) => {
     match $m {
@@ -97,14 +97,14 @@ impl Expr {
     match_term!(
       self, {
         Expr::Sym
-      | Expr::Cte => |_| Ok(self),
-        Expr::Num => |n| Ok(Expr::Num(n.trivial()?)),
+      | Expr::Cte [_] => Ok(self),
+        Expr::Num [n] => Ok(Expr::Num(n.trivial()?)),
         Expr::Alg
       | Expr::Fun
       | Expr::Cal
     //| Expr::Op
     //| Expr::Sq
-        => |e| {
+        [e] => {
           e.trivial()
         }
       }
@@ -623,7 +623,7 @@ impl fmt::Display for Expr {
       | Expr::Cal
     //| Expr::Op
     //| Expr::Sq
-        => |e| {
+        [e] => {
           write!(f, "{}", e)
         }
       }

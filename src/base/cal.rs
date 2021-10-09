@@ -38,7 +38,7 @@ impl Calculus {
       .var
       .into_iter()
       // compose
-      .try_fold(*self.arg, |acc, var| {
+      .try_fold(self.arg.trivial()?, |acc, var| {
         var.is_symbol().map_or(Err(Form {}), |var| {
           op(
             acc, //.
@@ -207,15 +207,17 @@ impl fmt::Display for Calculus {
 impl fmt::Display for CalOp {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match self {
-      // ```∂(f, x_1, x_2, ..., x_n)```
+      // ```D(f, x_1, x_2, ..., x_n)```
       CalOp::Der => write!(
+        //.
         f,
-        "∂" //.
+        "D"
       ),
-      // ```∫(f, x_1, x_2, ..., x_n)```
+      // ```L(f, x_1, x_2, ..., x_n)```
       CalOp::Int => write!(
+        //.
         f,
-        "∫" //.
+        "L"
       ),
     }
   }
@@ -225,9 +227,11 @@ impl Expr {
   /// ```∂(f(g))/∂x = (∂f/∂x)(g)*∂g/∂x```
   fn chain_rule(self, derivative: Expr, part: &Symbol) -> SymbolicResult<Expr> { Ok(Calculus::differentiate(self, part)? * derivative) }
 
+  /// ```D^x(f)```,
   /// ```∂f/(∂x_1 ∂x_2 ... ∂x_n)```
   pub fn derivative(self, var: Vec<Expr>) -> Expr { Self::calculus_order(CalOp::Der, Box::new(self), var) }
 
+  /// ```L^x(f)```,
   /// ```∫ ∫ ... ∫ f dx_1 dx_2 ... dx_n```
   pub fn integral(self, var: Vec<Expr>) -> Expr { Self::calculus_order(CalOp::Int, Box::new(self), var) }
 

@@ -154,11 +154,11 @@ impl Function {
           (EOp::ArcTan, Expr::ONE) => (Expr::Cte(Constant::pi) * Expr::QUARTER).trivial(),
 
           // ```sin(I) = I*sinh(1)```
-          // ```cos(I) = I*cosh(1)```
+          // ```cos(I) = cosh(1)```
           // ```tan(I) = I*tanh(1)```
-          (EOp::Sin, Expr::Cte(Constant::I)) => Ok(Expr::Cte(Constant::I) * Expr::sinh(Expr::ONE)),
-          (EOp::Cos, Expr::Cte(Constant::I)) => Ok(Expr::cosh(Expr::ONE)),
-          (EOp::Tan, Expr::Cte(Constant::I)) => Ok(Expr::Cte(Constant::I) * Expr::tanh(Expr::ONE)),
+          (EOp::Sin, Expr::Cte(Constant::i)) => Ok(Expr::Cte(Constant::i) * Expr::sinh(Expr::ONE)),
+          (EOp::Cos, Expr::Cte(Constant::i)) => Ok(Expr::cosh(Expr::ONE)),
+          (EOp::Tan, Expr::Cte(Constant::i)) => Ok(Expr::Cte(Constant::i) * Expr::tanh(Expr::ONE)),
 
           // ```sin(arcsin(x)) = x```
           // ```sin(arccos(x)) = sqrt(1 - x^2)```
@@ -216,7 +216,7 @@ impl Function {
           // ```tanh(_∞) = sgn(_∞)```
           // ```artanh(_∞) = -sgn(_∞)*π*I/2```
           (EOp::Tanh, Expr::Cte(Constant::Infinity(z))) => Ok(Expr::from(z)),
-          (EOp::ArTanh, Expr::Cte(Constant::Infinity(z))) => (Expr::from(-z) * Expr::Cte(Constant::pi) * Expr::Cte(Constant::I) * Expr::HALF).trivial(),
+          (EOp::ArTanh, Expr::Cte(Constant::Infinity(z))) => (Expr::from(-z) * Expr::Cte(Constant::pi) * Expr::Cte(Constant::i) * Expr::HALF).trivial(),
 
           // ```sinh(0) = arsinh(0) = 0```
           (EOp::Sinh | EOp::ArSinh, Expr::ZERO) => Ok(Expr::ZERO),
@@ -226,7 +226,7 @@ impl Function {
           (EOp::Tanh | EOp::ArTanh, Expr::ZERO) => Ok(Expr::ZERO),
 
           // ```arcosh(0) = π*I/2```
-          (EOp::ArCosh, Expr::ZERO) => (Expr::Cte(Constant::pi) * Expr::Cte(Constant::I) * Expr::HALF).trivial(),
+          (EOp::ArCosh, Expr::ZERO) => (Expr::Cte(Constant::pi) * Expr::Cte(Constant::i) * Expr::HALF).trivial(),
           // ```arcosh(1) = 0```
           (EOp::ArCosh, Expr::ONE) => Ok(Expr::ZERO),
           // ```artanh(1) = ∞```

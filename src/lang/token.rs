@@ -20,27 +20,7 @@ pub enum TokenKind<'a> {
   Semicolon,
   Rule,
   Def,
-  // Lang
-  Keyword(TokenKeyword),
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum TokenCal {
-  Der,
-  Int,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum TokenSeq {
-  Sum,
-  Prod,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum TokenKeyword {
-  // Math
-  Cal(TokenCal),
-  Seq(TokenSeq),
+  Pre,
 }
 
 #[derive(Debug, Clone)]
@@ -135,6 +115,7 @@ impl<'a> Lexer<'a> {
     let (text, span) = self.advance_while(|c| c.is_alphabetic() || c.is_ascii_digit() || c == '_')?;
 
     Ok(Token {
+      //.
       span,
       kind: TokenKind::Symbol(
         //.
@@ -148,19 +129,12 @@ impl<'a> Lexer<'a> {
       //.
       c == ':' ||
       c == '=' ||
-      c == '∂' ||
-      c == '∫' ||
-      c == '∑' ||
-      c == '∏')?;
+      c == '_')?;
 
     let kind = match text {
       ":=" => TokenKind::Rule,
       "=" => TokenKind::Def,
-
-      "∂" => TokenKind::Keyword(TokenKeyword::Cal(TokenCal::Der)),
-      "∫" => TokenKind::Keyword(TokenKeyword::Cal(TokenCal::Int)),
-      "∑" => TokenKind::Keyword(TokenKeyword::Seq(TokenSeq::Sum)),
-      "∏" => TokenKind::Keyword(TokenKeyword::Seq(TokenSeq::Prod)),
+      "_" => TokenKind::Pre,
 
       _ => {
         return Err(LangError::Lex); //.

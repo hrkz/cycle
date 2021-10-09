@@ -92,16 +92,16 @@ impl Algebra {
           }
 
           // ```I^y, y ∈ ℤ```
-          (Expr::Cte(Constant::I), Expr::Num(Number::Z(rhs))) => {
+          (Expr::Cte(Constant::i), Expr::Num(Number::Z(rhs))) => {
             Ok(match rhs.rem_euclid(4) {
               // ```I^y =  1, y mod 4 = 0```
               // ```I^y =  I, y mod 4 = 1```
               // ```I^y = -1, y mod 4 = 2```
               // ```I^y = -I, y mod 4 = 3```
               0 => Expr::ONE,
-              1 => Expr::Cte(Constant::I),
+              1 => Expr::Cte(Constant::i),
               2 => Expr::NEG_ONE,
-              _ => Expr::Cte(Constant::I).neg(),
+              _ => Expr::Cte(Constant::i).neg(),
             })
           }
 
@@ -120,7 +120,7 @@ impl Algebra {
           }
 
           // ```sqrt(-1) = (-1)^(1/2) = I```
-          //(Expr::NEG_ONE, Expr::HALF) => Ok(Expr::Cte(Constant::I)),
+          //(Expr::NEG_ONE, Expr::HALF) => Ok(Expr::Cte(Constant::i)),
 
           // ```1^x = x^0 = 1```
           (Expr::ONE, _) | (_, Expr::ZERO) => Ok(Expr::ONE),
@@ -295,11 +295,11 @@ impl Assoc {
         }))
           if self.map == smap =>
         {
-          sarg.into_iter().for_each(|x| self.arg.push(x))
+          sarg.into_iter().for_each(|sub| self.arg.push(sub))
         }
 
-        a => {
-          arg.push(a) //.
+        expr => {
+          arg.push(expr) //.
         }
       }
     }
@@ -512,7 +512,7 @@ impl Expr {
   /// ```√a```
   pub fn r#sqrt(self) -> Self { self.pow(Expr::HALF) }
 
-  pub(crate) fn r#assoc(
+  pub fn r#assoc(
     //.
     map: AOp,
     arg: Vec<Expr>,

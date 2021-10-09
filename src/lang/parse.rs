@@ -1,4 +1,4 @@
-use crate::lang::{Ast, LangError, Lexer, Token, TokenCal, TokenKeyword, TokenKind};
+use crate::lang::{Ast, LangError, Lexer, Session, Token, TokenKind};
 use crate::*;
 
 use std::iter::Peekable;
@@ -10,7 +10,7 @@ use std::iter::Peekable;
 /// <Primary> ::=
 ///    Number
 ///  | Symbol
-///  | <Keyword>
+///  | _
 ///  | <Function>
 ///  | "(" <Expr> ")"
 ///  | "+" <Expr>
@@ -39,48 +39,22 @@ use std::iter::Peekable;
 #[derive(Debug, Clone)]
 pub struct Parser<'a> {
   tokens: Peekable<Lexer<'a>>,
+  ses: &'a Session,
+  //cap: Capture,
 }
 
 impl<'a> Parser<'a> {
-  pub fn parse(src: &'a str) -> Result<Ast, LangError> { Parser { tokens: Lexer::new(src).peekable() }.root() }
-
-  fn keyword(&mut self, keyword: TokenKeyword) -> Result<Expr, LangError> {
-    self.next()?;
-    if let Some(TokenKind::LPar) = self.peek() {
-      let mut args = self.list()?;
-
-      match keyword {
-        TokenKeyword::Cal(cal) => {
-          //
-          // <Calculus> ::=
-          //    "∂" | "∫" "(" <Expr> "," <Args>
-          //
-          // <Args> ::=
-          //    <Expr> <Args>
-          //  | "," <Args>
-          //  | ")"
-          //
-
-          let expr = args.remove(0);
-          Ok(match cal {
-            TokenCal::Der => Expr::derivative(expr, args),
-            TokenCal::Int => Expr::integral(expr, args),
-          })
-        }
-
-        TokenKeyword::Seq(_seq) => unimplemented!(),
-      }
-    } else {
-      //
-      // hints
-      //
-      // <Primary> \in [TokenKind::LPar]
-      //
-
-      Err(LangError::Rule {
-        rule: format!("reserved keyword {:?} can only be used as an operator", keyword),
-      })
+  pub fn parse(
+    //.
+    src: &'a str,
+    ses: &'a Session,
+  ) -> Result<Ast, LangError> {
+    Parser {
+      tokens: Lexer::new(src).peekable(),
+      ses,
+      //cap,
     }
+    .root()
   }
 
   fn function(&mut self, name: &str) -> Result<Expr, LangError> {
@@ -95,7 +69,17 @@ impl<'a> Parser<'a> {
     //
 
     let args = self.list()?;
-    Ok(Expr::map(name, args))
+
+    if let Some(f) = self.ses.f.get(name) {
+      f(args).map_err(|(expected, given)| LangError::Rule {
+        rule: format!("builtin function `{}` takes {} argument(s) ({} given)", name, expected, given),
+      })
+    } else {
+      Ok(Expr::map(
+        name, //.
+        args,
+      ))
+    }
   }
 
   fn list(&mut self) -> Result<List, LangError> {
@@ -155,17 +139,22 @@ impl<'a> Parser<'a> {
 
       Some(TokenKind::Symbol(sym)) => {
         let sym = sym.to_string();
-        self.next()?;
 
+        self.next()?;
         if let Some(TokenKind::LPar) = self.peek() {
           self.function(&sym)
         } else {
-          Ok(Expr::Sym(Symbol::new(&sym, Set::SR)))
+          Ok(Expr::Sym(Symbol::new(
+            //.
+            &sym,
+            Set::SR,
+          )))
         }
       }
 
-      Some(TokenKind::Keyword(kw)) => {
-        self.keyword(kw) //.
+      Some(TokenKind::Pre) => {
+        self.next()?;
+        Ok(self.ses.prev.clone().unwrap_or(Expr::ZERO))
       }
 
       Some(TokenKind::LPar) => {
@@ -184,12 +173,12 @@ impl<'a> Parser<'a> {
           //
           // hints
           //
-          // <Primary> \in [TokenKind::Number, TokenKind::Symbol, TokenKind::LPar, TokenKind::LSqr, TokenKind::Keyword]
+          // <Primary> \in [TokenKind::Number, TokenKind::Symbol, TokenKind::Pre, TokenKind::LPar, TokenKind::LSqr]
           // <Expr>
           //
 
           Err(LangError::Expected {
-            expr: "`Number, Symbol, Keyword, (, [, +, -`, found non-primary operator",
+            expr: "`Number, Symbol, _, (, [, +, -`, found non-primary operator",
             span: token.span,
           })
         }
@@ -221,8 +210,7 @@ impl<'a> Parser<'a> {
         TokenKind::Number(_)
         | TokenKind::Symbol(_)
         | TokenKind::LPar
-        | TokenKind::LSqr
-        | TokenKind::Keyword(_) = token
+        | TokenKind::LSqr = token
       {
         let token = self.next()?;
 

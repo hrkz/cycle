@@ -30,13 +30,11 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --workspace
 
       - name: Testing
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --tests --examples
 
       - name: Formatting
         uses: actions-rs/cargo@v1

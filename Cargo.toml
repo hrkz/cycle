@@ -1,11 +1,11 @@
 [package]
 name = "cycle"
 version = "0.2.1"
-description = "Mathematical modeling using symbolic trees"
+description = "modern and safe symbolic mathematics"
 authors = ["hrkz <hugo.frezat@gmail.com>"]
 
 keywords = ["symbolic", "mathematics", "modeling", "analysis"]
-edition = "2018"
+edition = "2021"
 license = "MIT"
 readme = "README.md"
 
@@ -13,9 +13,10 @@ homepage = "https://cycle-research.org"
 repository = "https://github.com/hrkz/cycle/"
 
 [features]
-default = ["cycle_lang", "cycle_plot"]
+default = ["cycle_lang", "cycle_num", "cycle_plot"]
 
 cycle_lang = []
+cycle_num  = []
 cycle_plot = []
 
 [dependencies]
@@ -24,9 +25,3 @@ cycle_plot = []
 name = "omega"
 path = "bin/omega.rs"
 test = false
-
-[workspace]
-members = [
-  "crates/cycle-num",
-  "crates/cycle-proof",
-]

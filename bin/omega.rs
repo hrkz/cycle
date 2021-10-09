@@ -15,9 +15,9 @@ use std::fs;
 use std::io::{self, stdin, stdout, Write};
 
 fn main() -> io::Result<()> {
-  let mut vm = Interpreter::new(1);
+  let mut vm = Interpreter::new();
 
-  Prelude::new().use_into(&mut vm).unwrap_or_else(|err| eprintln!("failed to load cycle prelude: {}", err));
+  Prelude::new().load(&mut vm).unwrap_or_else(|err| eprintln!("failed to load cycle prelude: {}", err));
   if let Some(filename) = env::args().nth(1) {
     vm.file(filename)
   } else {
@@ -83,85 +83,113 @@ impl Interact for Interpreter {
   }
 }
 
-///
-/// Mathematical constants >
-/// oo, pi, I
-///
-/// Arithmetic functions >
-/// +, -, *, /, ^, !, sqrt
-///
-/// Elementary functions >
-/// sin, cos, tan, arcsin, arccos, arctan, sinh, cosh, tanh, arsinh, arcosh, artanh, log, exp
-///
-struct Prelude {
-  arg: Expr,
-}
+struct Prelude {}
 
 impl Prelude {
-  fn new() -> Prelude {
-    Prelude {
-      arg: Expr::Sym(Symbol::new("_0", Set::SR)),
-    }
-  }
+  fn new() -> Self { Prelude {} }
 
-  fn def<F>(
-    //.
-    &self,
-    vm: &mut Interpreter,
-    name: &str,
-    f: F,
-  ) -> Result<Option<Expr>, LangError>
-  where
-    F: Fn(Expr) -> Expr,
-  {
-    let _0 = self.arg.clone();
-    vm.eval(Ast::Def(Expr::map(name, vec![_0.clone()]), f(_0)))
-  }
-
-  fn use_into(
-    //.
-    &self,
-    vm: &mut Interpreter,
-  ) -> Result<(), LangError> {
-    // ```sqrt(x) = x^(1/2)```
-    self.def(vm, "sqrt", |e| e.sqrt())?;
-
+  ///
+  /// Elementary functions >
+  /// sin, cos, tan, arcsin, arccos, arctan, sinh, cosh, tanh, arsinh, arcosh, artanh, log, exp
+  ///
+  fn load_elementary(&mut self, vm: &mut Interpreter) -> Result<(), LangError> {
     // ```sin(x)```
     // ```cos(x)```
     // ```tan(x)```
-    self.def(vm, "sin", |e| e.sin())?;
-    self.def(vm, "cos", |e| e.cos())?;
-    self.def(vm, "tan", |e| e.tan())?;
+    vm.bind_function("sin", |arg| {
+      lang::map_args(|[x]| x.sin(), arg) //.
+    });
+    vm.bind_function("cos", |arg| {
+      lang::map_args(|[x]| x.cos(), arg) //.
+    });
+    vm.bind_function("tan", |arg| {
+      lang::map_args(|[x]| x.tan(), arg) //.
+    });
 
     // ```arcsin(x)```
     // ```arccos(x)```
     // ```arctan(x)```
-    self.def(vm, "arcsin", |e| e.arcsin())?;
-    self.def(vm, "arccos", |e| e.arccos())?;
-    self.def(vm, "arctan", |e| e.arctan())?;
+    vm.bind_function("arcsin", |arg| {
+      lang::map_args(|[x]| x.arcsin(), arg) //.
+    });
+    vm.bind_function("arccos", |arg| {
+      lang::map_args(|[x]| x.arccos(), arg) //.
+    });
+    vm.bind_function("arctan", |arg| {
+      lang::map_args(|[x]| x.arctan(), arg) //.
+    });
 
     // ```sinh(x)```
     // ```cosh(x)```
     // ```tanh(x)```
-    self.def(vm, "sinh", |e| e.sinh())?;
-    self.def(vm, "cosh", |e| e.cosh())?;
-    self.def(vm, "tanh", |e| e.tanh())?;
+    vm.bind_function("sinh", |arg| {
+      lang::map_args(|[x]| x.sinh(), arg) //.
+    });
+    vm.bind_function("cosh", |arg| {
+      lang::map_args(|[x]| x.cosh(), arg) //.
+    });
+    vm.bind_function("tanh", |arg| {
+      lang::map_args(|[x]| x.tanh(), arg) //.
+    });
 
     // ```arsinh(x)```
     // ```arcosh(x)```
     // ```artanh(x)```
-    self.def(vm, "arsinh", |e| e.arsinh())?;
-    self.def(vm, "arcosh", |e| e.arcosh())?;
-    self.def(vm, "artanh", |e| e.artanh())?;
+    vm.bind_function("arsinh", |arg| {
+      lang::map_args(|[x]| x.arsinh(), arg) //.
+    });
+    vm.bind_function("arcosh", |arg| {
+      lang::map_args(|[x]| x.arcosh(), arg) //.
+    });
+    vm.bind_function("artanh", |arg| {
+      lang::map_args(|[x]| x.artanh(), arg) //.
+    });
 
     // ```exp(x)```
     // ```log(x)```
-    self.def(vm, "exp", |e| e.exp())?;
-    self.def(vm, "log", |e| e.log())?;
+    vm.bind_function("exp", |arg| {
+      lang::map_args(|[x]| x.exp(), arg) //.
+    });
+    vm.bind_function("log", |arg| {
+      lang::map_args(|[x]| x.log(), arg) //.
+    });
 
+    Ok(())
+  }
+
+  ///
+  /// Calculus operators >
+  /// differentiation (D), integration (L)
+  ///
+  fn load_calculus(&mut self, vm: &mut Interpreter) -> Result<(), LangError> {
+    // ```D(x, ...) = ∂x / ∂ ... ∂```
+    vm.bind_function("D", |mut arg| {
+      Ok(arg.remove(0).derivative(arg)) //.
+    });
+    // ```L(x, ...) = ∫ ... ∫x d v```
+    vm.bind_function("L", |mut arg| {
+      Ok(arg.remove(0).integral(arg)) //.
+    });
+
+    Ok(())
+  }
+
+  ///
+  /// Mathematical constants >
+  /// oo, pi, I
+  ///
+  fn load_constants(&mut self, vm: &mut Interpreter) -> Result<(), LangError> {
     vm.eval(Ast::Rule(Expr::Sym(Symbol::new("oo", Set::SR)), Expr::Cte(Constant::Infinity(1))))?;
     vm.eval(Ast::Rule(Expr::Sym(Symbol::new("pi", Set::SR)), Expr::Cte(Constant::pi)))?;
-    vm.eval(Ast::Rule(Expr::Sym(Symbol::new("I", Set::SR)), Expr::Cte(Constant::I)))?;
+    vm.eval(Ast::Rule(Expr::Sym(Symbol::new("i", Set::SR)), Expr::Cte(Constant::i)))?;
+
+    Ok(())
+  }
+
+  fn load(&mut self, vm: &mut Interpreter) -> Result<(), LangError> {
+    self.load_elementary(vm)?;
+    self.load_calculus(vm)?;
+    self.load_constants(vm)?;
 
     Ok(())
   }

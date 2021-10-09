@@ -2,7 +2,7 @@ mod parse;
 mod token;
 
 pub use parse::Parser;
-pub use token::{Lexer, Token, TokenCal, TokenKeyword, TokenKind};
+pub use token::{Lexer, Token, TokenKind};
 
 use crate::{Expr, Function};
 
@@ -13,7 +13,7 @@ use std::ops;
 ///
 /// cycle-lang spec
 ///
-/// The reference is described mainly as a mathematical language, with exceptions and special operators.
+/// The reference is described mainly as a mathematical language with special operators.
 /// Note that this is intended to help the user
 /// when interacting with the interpreter.
 ///
@@ -23,7 +23,6 @@ use std::ops;
 /// A complete cheat-sheet will soon bring more details about these,
 /// with direct correspondance between the cycle syntax and its corresponding mathematical operation.
 ///
-/// - Reserved manipulation operators.
 /// - Elementary functions, including trigonometric, hyperbolic and exponential families.
 /// - [Mathematical constants](crate::Constant).
 ///
@@ -56,20 +55,34 @@ struct Definition {
   arg: Vec<Expr>,
 }
 
+pub type Builtin = fn(Vec<Expr>) -> Result<Expr, (usize, usize)>;
+
+#[derive(Debug)]
+pub struct Session {
+  f: HashMap<String, Builtin>,
+  prev: Option<Expr>,
+}
+
 #[derive(Debug)]
 pub struct Interpreter {
   env: (HashMap<Expr, Rule>, HashMap<String, Definition>),
-  ver: u32,
+  ses: Session,
 }
 
 impl Interpreter {
-  pub fn new(ver: u32) -> Interpreter {
+  pub fn new() -> Interpreter {
     Interpreter {
       //.
       env: (HashMap::new(), HashMap::new()),
-      ver,
+      ses: Session {
+        //.
+        f: HashMap::new(),
+        prev: None,
+      },
     }
   }
+
+  pub fn bind_function(&mut self, name: &str, f: Builtin) { self.ses.f.insert(String::from(name), f); }
 
   pub fn parse(&mut self, stmt: &str) -> Result<Option<Expr>, LangError> {
     if stmt.is_empty() {
@@ -77,7 +90,7 @@ impl Interpreter {
     }
 
     self.eval(Parser::parse(
-      stmt, //.
+      stmt, &self.ses, //.
     )?)
   }
 
@@ -85,7 +98,7 @@ impl Interpreter {
     match ast {
       Ast::Expr(expr) => {
         // lookup
-        Ok(Some(self.compose(expr)?))
+        Ok(Some(self.ses.prev.insert(self.compose(expr)?).clone()))
       }
 
       Ast::Rule(lhs, rhs) => {
@@ -189,7 +202,7 @@ impl Interpreter {
 }
 
 pub fn parse(stmt: &str) -> Result<Expr, LangError> {
-  let ast = Parser::parse(stmt)?;
+  let ast = Parser::parse(stmt, &Session { f: HashMap::new(), prev: None })?;
   if let Ast::Expr(expr) = ast {
     //
     // cf. doc
@@ -200,6 +213,12 @@ pub fn parse(stmt: &str) -> Result<Expr, LangError> {
       rule: String::from("can only parse expressions, use the interpreter for other constructions"),
     })
   }
+}
+
+/// Map a Vec of expressions to a fixed number of arguments
+pub fn map_args<F: Fn([Expr; E]) -> Expr, const E: usize>(f: F, arg: Vec<Expr>) -> Result<Expr, (usize, usize)> {
+  let given = arg.len();
+  <[Expr; E]>::try_from(arg).map_or(Err((E, given)), |arr| Ok(f(arr)))
 }
 
 pub type Span = ops::Range<usize>;

@@ -32,7 +32,7 @@ $ cargo run # Run the interpreter (optional)
 or with the crate
 ```toml
 [dependencies]
-cycle = "0.2.1"
+cycle = "0.3.0"
 ```
 
 ## Getting started

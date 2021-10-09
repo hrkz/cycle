@@ -12,7 +12,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! cycle = "0.2.1"
+//! cycle = "0.3.0"
 //! ```
 //!
 //! ## Getting started

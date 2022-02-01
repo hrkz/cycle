@@ -1,4 +1,3 @@
-#![feature(array_chunks)]
 //!
 //! Cycle is a **symbolic** mathematics library based on expression trees that focuses on correct,
 //! flexible and **comprehensive** manipulation of mathematical objects. Cycle can be used to study

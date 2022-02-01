@@ -90,18 +90,14 @@ struct Prelude;
 
 impl Package for Prelude {
   fn build(&self, env: &mut Environment) -> Result<(), lang::Error> {
-    self.load_elementary(env).expect(
-      "failed to load elementary functions", //.
-    );
-    self.load_calculus(env).expect(
-      "failed to load calculus operators", //.
-    );
-    self.load_manipulation(env).expect(
-      "failed to load manipulation functions", //.
-    );
-    self.load_sequence(env).expect(
-      "failed to load sequential operators", //.
-    );
+    self
+      .load_elementary(env)
+      .and(self.load_calculus(env))
+      .and(self.load_manipulation(env))
+      .and(self.load_sequence(env))
+      .expect(
+        "failed to load basic packages", //.
+      );
 
     self.load_constants(
       env, //.

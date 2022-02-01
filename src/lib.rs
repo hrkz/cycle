@@ -1,3 +1,4 @@
+#![feature(array_chunks)]
 //!
 //! Cycle is a **symbolic** mathematics library based on expression trees that focuses on correct,
 //! flexible and **comprehensive** manipulation of mathematical objects. Cycle can be used to study
@@ -34,25 +35,16 @@ pub mod lang;
 #[cfg(feature = "cycle_plot")]
 pub mod plot;
 
-pub use crate::base::ring::{self, Constant, Form, Integer, Number, Rational, Set, SymbolicResult};
-pub use crate::base::{Expr, Symbol};
+pub use crate::base::algebra::{Constant, Form, Integer, Natural, Number, Rational, Structure, SymbolicResult};
+pub use crate::base::{Edge, Expr, Node, Symbol, Tree};
 
-pub use crate::base::fun::{Function, Special};
-
-/// Abstract data types
+// Types reexport.
 pub mod types {
-  //! ## Require some description
+  //! Higher order generic mathematical types.
+  //!
+  //! Homogeneous multidimensional array (tensor) and graph for practical use in cycle packages or user libraries.
   pub use crate::base::{
-    array::{
-      //.
-      self,
-      Array,
-      ArrayBase,
-    },
-    graph::{
-      //.
-      self,
-      GraphBase,
-    },
+    array::{self},
+    graph::{self},
   };
 }

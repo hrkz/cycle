@@ -1,7 +1,10 @@
+//! Algebraic structures.
+
 mod num_integer;
 mod num_rational;
-mod poly;
-mod repr;
+
+pub mod poly;
+pub mod repr;
 
 use std::cmp::Ordering;
 use std::fmt;
@@ -11,8 +14,10 @@ pub use num_integer::*;
 pub use num_rational::Rational;
 pub use repr::*;
 
+/// Type alias for a mathematical resulting form.
 pub type SymbolicResult<T> = Result<T, Form>;
 
+/// A countable number (excluding irrational and complex numbers).
 #[derive(Debug, Clone, Hash, PartialEq, PartialOrd, Eq, Ord)]
 pub enum Number {
   Z(Integer),
@@ -20,6 +25,7 @@ pub enum Number {
 }
 
 impl Number {
+  /// Return the numerator.
   pub fn num(&self) -> Integer {
     match self {
       // ```num(z) ∈ ℤ = num(z/1) ∈ ℚ = z,```
@@ -34,6 +40,7 @@ impl Number {
     }
   }
 
+  /// Return the denominator.
   pub fn den(&self) -> Integer {
     match self {
       // ```den(z) ∈ ℤ = den(z/1) ∈ ℚ = 1,```
@@ -48,44 +55,50 @@ impl Number {
     }
   }
 
-  pub fn len(&self) -> u64 { 1 + (self.den() != 1 || self.num().is_negative()) as u64 }
-
-  pub fn dom(&self) -> Set {
+  /// Determine the special number set.
+  pub fn dom(&self) -> Structure {
     if self.den() != 1 {
-      Set::Q
+      Structure::Q
+    } else if self.num() < 0 {
+      Structure::Z
     } else {
-      if self.num() < 0 {
-        Set::Z
-      } else {
-        Set::N
-      }
+      Structure::N
     }
   }
 
-  pub fn divmod(&self) -> (Integer, Integer) { (self.num().div_euclid(self.den()), self.num().rem_euclid(self.den())) }
+  /// Return the divisor and remainder.
+  pub fn divrem(&self) -> (Integer, Integer) {
+    let div = self.num().div_euclid(self.den());
+    let rem = self.num().rem_euclid(self.den());
+    (div, rem)
+  }
 
-  pub fn inv(self) -> SymbolicResult<Number> { Number::Q(Rational::new(self.den(), self.num())).trivial() }
+  /// Return the inverse (reciprocal).
+  pub fn inv(self) -> SymbolicResult<Number> {
+    Number::Q(Rational::new(self.den(), self.num())).trivial()
+  }
 
+  /// Return the number raised to an integer power.
   pub fn powi(self, n: Integer) -> SymbolicResult<Number> {
     if self.num() != 0 {
-      if n > 0 {
+      match n.cmp(&0) {
         // ```l^n = 1^(n - 1)*l```
-        self.clone().powi(n - 1)?.mul(self)
-      } else if n < 0 {
+        Ordering::Greater => self.clone().powi(n - 1)?.mul(self),
         // ```l^-n = (1/l)^n```
-        self.inv()?.powi(-n)
-      } else {
-        Ok(Number::Z(1))
+        Ordering::Less => self.inv()?.powi(-n),
+        // ```l^0 = 1```
+        Ordering::Equal => Ok(Number::Z(1)),
       }
+    } else if n > 0 {
+      Ok(Number::Z(0))
     } else {
-      if n > 0 {
-        Ok(Number::Z(0))
-      } else {
-        Err(Form {})
-      }
+      Err(
+        Form {}, // ```0^-n```
+      )
     }
   }
 
+  /// Try to compute the ith root.
   pub fn try_root(self, x: Integer) -> Option<Number> {
     let n = self.den().abs() as u32;
     let m = self.num();
@@ -114,33 +127,41 @@ impl Number {
     }
   }
 
+  /// Apply numerical simplifications.
   pub fn trivial(self) -> SymbolicResult<Number> {
-    match self {
-      Number::Q(q) => {
-        if q.den() == 0 {
-          return Err(Form {});
-        }
-
-        let g = Integer::gcd(
-          &q.num(), //.
-          &q.den(),
+    if let Number::Q(q) = self {
+      if q.den() == 0 {
+        return Err(
+          Form {}, // ```n/0```
         );
-
-        let sgn = q.den().signum();
-        let num = q.num() / g * sgn;
-        let den = q.den() / g * sgn;
-
-        if den != 1 {
-          Ok(Number::Q(Rational::new(num, den)))
-        } else {
-          Ok(Number::Z(num))
-        }
       }
 
-      _ => {
-        Ok(self) //.
+      let g = Integer::gcd(
+        &q.num(), //.
+        &q.den(),
+      );
+
+      let sgn = q.den().signum();
+      let num = q.num() / g * sgn;
+      let den = q.den() / g * sgn;
+
+      if den != 1 {
+        Ok(Number::Q(Rational::new(num, den)))
+      } else {
+        Ok(Number::Z(num))
       }
+    } else {
+      Ok(self)
     }
+  }
+
+  // Helpers
+  pub(crate) fn helper_len(&self) -> u64 {
+    1 + self
+      .dom()
+      // ℤ -> -
+      // ℚ -> /
+      .ge(&Structure::Z) as u64
   }
 }
 
@@ -201,13 +222,14 @@ impl Mul for Number {
 impl fmt::Display for Number {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match self {
-      Number::Z(z) => write!(f, "{}", z),
+      Number::Z(z) => {
+        write!(f, "{z}")
+      }
 
       Number::Q(q) => {
         write!(
-          //.
           f,
-          "{}/{}",
+          "{}/{}", // fraction
           q.num(),
           q.den()
         )
@@ -216,38 +238,61 @@ impl fmt::Display for Number {
   }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Copy)]
-/// Mathematical error
+/// An indeterminate form.
+#[derive(Debug, Clone, Hash, PartialEq, PartialOrd, Eq, Ord, Copy)]
 pub struct Form {}
 
 impl fmt::Display for Form {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { write!(f, "?") }
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    write!(f, "?")
+  }
 }
 
-#[allow(nonstandard_style)]
+/// A list of important mathematical constants.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Copy)]
-/// Special constants
 pub enum Constant {
-  /// \[_∞] Infinity
-  Infinity(Integer),
+  /// \[_∞] Infinity.
+  Infinity(Ordering),
 
-  /// \[π] pi, Archimede's constant
-  pi,
-  /// \[φ] Golden ratio
-  GoldenRatio,
-  /// \[G] Catalan's constant
-  Catalan,
-  /// \[γ] Euler-Mascheroni constant
-  Euler,
-  /// \[K] Khinchin's constant
-  Khinchin,
-  /// \[A] Glaisher's constant
-  Glaisher,
-  /// \[ζ3] Apéry's constant
-  Apery,
+  /// \[i] Imaginary unit.
+  I,
+  /// \[π] Archimede's constant.
+  Pi,
+  /// \[e] Euler's number.
+  E,
+}
 
-  /// \[i] Imaginary number
-  i,
+impl Constant {
+  pub fn dom(&self) -> Structure {
+    match self {
+      Constant::Infinity(_) => Structure::AS,
+
+      Constant::I => {
+        // i ∈ ℂ
+        Structure::C
+      }
+      Constant::Pi => {
+        // π ∈ R∖Q
+        Structure::R
+      }
+      Constant::E => {
+        // e ∈ R∖Q
+        Structure::R
+      }
+    }
+  }
+
+  pub(crate) fn dir_cmp(ord: Ordering) -> Integer {
+    ord as Integer
+  }
+
+  pub(crate) fn sign_cmp(
+    //.
+    lhs: Ordering,
+    rhs: Ordering,
+  ) -> Ordering {
+    lhs.cmp(&rhs).min(rhs.cmp(&lhs)).then(Ordering::Greater)
+  }
 }
 
 impl fmt::Display for Constant {
@@ -255,19 +300,17 @@ impl fmt::Display for Constant {
     match self {
       Constant::Infinity(z) => match z {
         // Directed (+)
-        z if z.is_positive() => write!(f, "oo"),
+        Ordering::Greater => write!(f, "oo"),
         // Directed (-)
-        z if z.is_negative() => write!(f, "-oo"),
+        Ordering::Less => write!(f, "-oo"),
         // Complex (~)
-        _ => write!(f, "~oo"),
+        Ordering::Equal => write!(f, "~oo"),
       },
 
       cte => {
         write!(
-          //.
           f,
-          "{:?}",
-          cte
+          "{cte:?}", // enum notation
         )
       }
     }

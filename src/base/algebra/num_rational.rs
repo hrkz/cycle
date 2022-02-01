@@ -1,17 +1,21 @@
-use crate::base::ring::num_integer::Integer;
-use crate::base::ring::repr::*;
+use crate::base::algebra::num_integer::Integer;
+use crate::base::algebra::repr::*;
 
 use std::cmp::Ordering;
+use std::hash::{Hash, Hasher};
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
-#[derive(Debug, Clone, Hash, Copy)]
+/// A rational ℚ.
+#[derive(Debug, Clone, Copy)]
 pub struct Rational {
-  pub num: Integer,
-  pub den: Integer,
+  /// Numerator.
+  pub(crate) num: Integer,
+  /// Denominator.
+  pub(crate) den: Integer,
 }
 
 impl Rational {
-  #[inline]
+  /// Create a new [`Rational`].
   pub const fn new(num: Integer, den: Integer) -> Rational {
     Rational {
       // Q
@@ -20,38 +24,27 @@ impl Rational {
     }
   }
 
-  pub const fn zero() -> Rational {
-    Rational::new(
-      0, //.
-      1,
-    )
+  /// Return `true` if `self` has a positive sign.
+  pub fn is_positive(&self) -> bool {
+    !self.is_negative()
   }
-  pub const fn one() -> Rational {
-    Rational::new(
-      1, //.
-      1,
-    )
-  }
-
-  // decompose
-  // self = self.trunc() + self.fract()
-
-  pub fn trunc(&self) -> Rational { Rational::from(self.num / self.den) }
-
-  pub fn fract(&self) -> Rational { Rational::new(self.num % self.den, self.den) }
-
-  pub fn is_positive(&self) -> bool { !self.is_negative() }
+  /// Return `true` if `self` has a negative sign.
   pub fn is_negative(&self) -> bool {
-    (self.num < 0 && self.den > 0) //.
-      || (self.num > 0 && self.den < 0)
+    (self.num < 0 && self.den > 0) || (self.num > 0 && self.den < 0)
   }
 }
 
 impl Domain for Rational {
-  fn name(&self) -> String { String::from("ℚ") }
+  fn name(&self) -> String {
+    String::from("ℚ")
+  }
 
-  fn num(&self) -> Integer { self.num }
-  fn den(&self) -> Integer { self.den }
+  fn num(&self) -> Integer {
+    self.num
+  }
+  fn den(&self) -> Integer {
+    self.den
+  }
 
   /// ```gcd(a/b, c/d) = gcd(a*d, c*b)/(b*d)```
   fn gcd(u: &Self, v: &Self) -> Self {
@@ -78,16 +71,17 @@ impl Domain for Rational {
   }
 }
 
-impl Ring for Rational {}
-impl Field for Rational {}
-
+impl Eq for Rational {}
 impl PartialEq for Rational {
-  fn eq(&self, other: &Rational) -> bool { self.cmp(other) == Ordering::Equal }
+  fn eq(&self, other: &Rational) -> bool {
+    self.cmp(other) == Ordering::Equal
+  }
 }
 
-impl Eq for Rational {}
 impl PartialOrd for Rational {
-  fn partial_cmp(&self, other: &Rational) -> Option<Ordering> { Some(self.cmp(other)) }
+  fn partial_cmp(&self, other: &Rational) -> Option<Ordering> {
+    Some(self.cmp(other))
+  }
 }
 
 impl Ord for Rational {
@@ -123,8 +117,20 @@ impl Ord for Rational {
   }
 }
 
+impl Hash for Rational {
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    self.num.hash(state);
+    self.den.hash(state);
+  }
+}
+
 impl From<Integer> for Rational {
-  fn from(n: Integer) -> Self { Rational::new(n, 1) }
+  fn from(n: Integer) -> Self {
+    Rational::new(
+      n, //.
+      1,
+    )
+  }
 }
 
 impl Add for Rational {
@@ -198,7 +204,12 @@ impl Div for Rational {
 impl Neg for Rational {
   type Output = Rational;
 
-  fn neg(self) -> Rational { Rational::new(-self.num, self.den) }
+  fn neg(self) -> Self::Output {
+    Rational::new(
+      self.num.neg(), //.
+      self.den,
+    )
+  }
 }
 
 #[cfg(test)]
@@ -215,8 +226,8 @@ mod tests {
     let r3_9 = Rational::new(3, 9);
 
     // trivial path: u, v = 0
-    assert_eq!(Domain::gcd(&r1_2, &Rational::zero()), r1_2);
-    assert_eq!(Domain::lcm(&r1_2, &Rational::zero()), Rational::zero());
+    assert_eq!(Domain::gcd(&r1_2, &Rational::from(0)), r1_2);
+    assert_eq!(Domain::lcm(&r1_2, &Rational::from(0)), Rational::from(0));
     // u = v
     assert_eq!(Domain::gcd(&r2_5, &r2_5), r2_5);
     assert_eq!(Domain::lcm(&r2_5, &r2_5), r2_5);
@@ -248,7 +259,7 @@ mod tests {
 
   #[test]
   fn ops() {
-    let r1_1 = Rational::one();
+    let r1_1 = Rational::from(1);
     let r1_2 = Rational::new(1, 2);
     let r2_1 = Rational::new(2, 1);
     let n1_2 = Rational::new(-1, 2);

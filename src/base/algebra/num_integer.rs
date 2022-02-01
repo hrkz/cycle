@@ -1,13 +1,21 @@
-use crate::base::ring::repr::*;
+use crate::base::algebra::repr::*;
 
-/// Basic smallest domain, ℤ
+/// A natural ℕ.
+pub type Natural = u128;
+/// An integer ℤ.
 pub type Integer = i128;
 
 impl Domain for Integer {
-  fn name(&self) -> String { String::from("ℤ") }
+  fn name(&self) -> String {
+    String::from("ℤ")
+  }
 
-  fn num(&self) -> Integer { *self }
-  fn den(&self) -> Integer { 1 }
+  fn num(&self) -> Integer {
+    *self
+  }
+  fn den(&self) -> Integer {
+    1
+  }
 
   fn gcd(u: &Self, v: &Self) -> Self {
     let u = u.abs();
@@ -48,33 +56,18 @@ impl Domain for Integer {
     }
 
     let gcd = Self::gcd(u, v);
-    let lcm = (u * v) / gcd;
-    lcm
+    (u * v) / gcd
   }
 }
 
-impl Ring for Integer {}
-
-pub trait Arithmetic: Domain + Copy {
-  /// ```n! = n*(n - 1)*(n - 2)*...*2*1, n ∈ ℕ```
-  fn factorial(self) -> Self;
-
-  /// ```(n k) = n! / k!(n - k)!, n, k ∈ ℕ```
-  fn binomial(
-    self, //.
-    k: Self,
-  ) -> Self {
-    self.factorial() / (k.factorial() * (self - k).factorial())
+pub(crate) fn factorial(n: Integer) -> Option<Integer> {
+  if n < 0 {
+    return None;
   }
-}
-
-impl Arithmetic for Integer {
-  fn factorial(self) -> Self {
-    if self > 1 {
-      self * (self - 1).factorial()
-    } else {
-      1
-    }
+  if n > 1 {
+    Some(n * factorial(n - 1)?)
+  } else {
+    Some(1)
   }
 }
 

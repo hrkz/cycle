@@ -1,199 +1,202 @@
-mod parse;
-mod token;
+//! Parsing, validation and generation of mathematical expressions.
 
-pub use parse::Parser;
-pub use token::{Lexer, Token, TokenKind};
+mod codegen_jit;
+mod lexer;
+mod prec_parser;
 
-use crate::{Expr, Function};
+pub use lexer::{Lexer, Token, TokenState};
+pub use prec_parser::Parser;
 
+use crate::{base::Function, Symbol, Tree};
+
+use std::any;
 use std::collections::HashMap;
+use std::error;
 use std::fmt;
-use std::ops;
 
-///
-/// cycle-lang spec
+/// An [`Ast`] term, currently referring to n [`Tree`].
+pub type Term = Tree;
+
+/// The complete AST (Abstract Syntax Tree) for a Cycle lang script.
 ///
 /// The reference is described mainly as a mathematical language with special operators.
-/// Note that this is intended to help the user
-/// when interacting with the interpreter.
 ///
-/// # Built-in
+/// # Capabilities
 ///
-/// The following expressions are defined within the library.
-/// A complete cheat-sheet will soon bring more details about these,
-/// with direct correspondance between the cycle syntax and its corresponding mathematical operation.
-///
-/// - Elementary functions, including trigonometric, hyperbolic and exponential families.
-/// - [Mathematical constants](crate::Constant).
+/// Here is a simple list of basic language constructions:
+/// - Expression evaluation `x`.
+/// - Variable declaration `v = x`.
+/// - Function definition `f(a1, ..., an) = ...`.
+/// - Context evaluation `(x1 ... xn)[x1 = y1] ... [xn = yn]`.
 ///
 /// # Examples
 ///
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum Ast {
-  Expr(Expr),
+  Expr(Term),
 
-  /// ```x := y```
-  Rule(Expr, Expr),
-  /// ```f(x_) = g(x_)```
-  Def(Expr, Expr),
+  /// `v = x` or `f(a_) = ...`
+  Def(Term, Term),
   //
-  // Extension
-  // (Load)
-  // (Mod)
+  // Modules
+  // (Use)
   //
 }
 
-#[derive(Debug)]
-struct Rule {
-  map: Expr,
+/// A function construction return type.
+pub type Construction = Option<(usize, usize)>;
+
+/// A function definition.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct FunctionMap {
+  /// Function expression (rhs).
+  map: Term,
+  /// Function arguments (lhs).
+  arg: Vec<Tree>,
 }
 
-#[derive(Debug)]
-struct Definition {
-  map: Expr,
-  arg: Vec<Expr>,
+/// Builtin function type.
+type Builtin = fn(Vec<Tree>) -> Result<Term, Construction>;
+
+/// The Cycle lang execution environment.
+///
+/// Store variables and function definitions, but could potentially support more, such as modules.
+/// Last executed command (or script) is accessible through alias `_`.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Environment {
+  /// Version.
+  version: u16,
+  /// Builtin registry.
+  registry: HashMap<Symbol, Builtin>,
+  /// Variables storage.
+  variables: HashMap<Tree, Term>,
+  /// Functions storage.
+  functions: HashMap<Symbol, FunctionMap>,
+  /// Last executed command.
+  last: Option<Term>,
 }
 
-pub type Builtin = fn(Vec<Expr>) -> Result<Expr, (usize, usize)>;
-
-#[derive(Debug)]
-pub struct Session {
-  f: HashMap<String, Builtin>,
-  prev: Option<Expr>,
-}
-
-#[derive(Debug)]
-pub struct Interpreter {
-  env: (HashMap<Expr, Rule>, HashMap<String, Definition>),
-  ses: Session,
-}
-
-impl Interpreter {
-  pub fn new() -> Interpreter {
-    Interpreter {
-      //.
-      env: (HashMap::new(), HashMap::new()),
-      ses: Session {
-        //.
-        f: HashMap::new(),
-        prev: None,
-      },
-    }
-  }
-
-  pub fn bind_function(&mut self, name: &str, f: Builtin) { self.ses.f.insert(String::from(name), f); }
-
-  pub fn parse(&mut self, stmt: &str) -> Result<Option<Expr>, LangError> {
+impl Environment {
+  /// Run interpreting steps (parsing and evaluation) from a statement into a [`Term`].
+  pub fn run(&mut self, stmt: &str) -> Result<Option<Term>, Error> {
     if stmt.is_empty() {
       return Ok(None);
     }
 
-    self.eval(Parser::parse(
-      stmt, &self.ses, //.
-    )?)
+    let ast = self.parse(stmt)?;
+    self.eval(
+      ast, //.
+    )
   }
 
-  pub fn eval(&mut self, ast: Ast) -> Result<Option<Expr>, LangError> {
+  /// Parse a statement (character stream) into a resulting [`Ast`].
+  pub fn parse(&mut self, stmt: &str) -> Result<Ast, Error> {
+    Parser::parse(
+      stmt, //.
+      self,
+    )
+  }
+
+  /// Evaluate (interpret) an [`Ast`] into a [`Term`], applying corresponding modifications to the [`Environment`].
+  pub fn eval(&mut self, ast: Ast) -> Result<Option<Term>, Error> {
     match ast {
       Ast::Expr(expr) => {
         // lookup
-        Ok(Some(self.ses.prev.insert(self.compose(expr)?).clone()))
-      }
-
-      Ast::Rule(lhs, rhs) => {
-        if matches!(lhs, Expr::Num(_)) {
-          return Err(LangError::Rule {
-            rule: format!("rule require a non-constant expression, found `{}`", lhs),
-          });
-        }
-
-        if rhs.free(&lhs) {
-          let rhs = Rule { map: self.compose(rhs)? };
-          self.env.0.insert(
-            lhs, //.
-            rhs,
-          );
-
-          Ok(None)
-        } else {
-          Err(
-            LangError::Rec, //.
-          )
-        }
+        Ok(Some(self.last.insert(self.compose(expr)?).clone()))
       }
 
       Ast::Def(lhs, rhs) => {
-        if let Expr::Fun(Function::MapExpr {
-          //.
-          map,
-          arg,
-        }) = lhs
-        {
-          let def = Definition { map: rhs, arg };
-          self.env.1.insert(
-            map, //.
-            def,
-          );
-
-          Ok(None)
-        } else {
-          Err(LangError::Rule {
-            rule: format!("definition require a functional form, found `{}`", lhs),
-          })
-        }
-      }
-    }
-  }
-
-  fn substitute_rules(&self, acc: &mut Expr, sub: &Expr) {
-    if let Some(res) = self.env.0.get(sub) {
-      acc.subs(sub, &res.map)
-    }
-  }
-
-  fn resolve_definitions(&self, mut acc: Expr, sub: &Expr) -> Result<Expr, LangError> {
-    match sub {
-      Expr::Fun(Function::MapExpr {
-        //.
-        map,
-        arg,
-      }) => {
-        if let Some(res) = self.env.1.get(map) {
-          if arg.len() != res.arg.len() {
-            return Err(LangError::Rule {
-              rule: format!("function `{}` takes {} argument(s) ({} given)", map, res.arg.len(), arg.len()),
+        match lhs {
+          Tree::Num(_) | Tree::Cte(_) => {
+            return Err(Error {
+              kind: ErrorKind::Context(Semantic::CteDef(lhs)), //.
+              spot: None,
             });
           }
 
-          let mut body = res.map.clone();
-          for (arg, param) in res.arg.iter().zip(arg.iter()) {
-            body.subs(arg, param)
+          Tree::Fun(Function::MapExpr { map, arg }) if self.functions.get(&map).is_none() => {
+            let rhs = FunctionMap { map: rhs, arg: arg.to_vec() };
+            self.functions.insert(
+              map, //.
+              rhs,
+            );
           }
 
-          acc.subs(&sub, &body);
-          return self.compose(
-            acc, //.
-          );
+          lhs => {
+            let rhs = self.compose(rhs)?;
+            self.variables.insert(
+              lhs, //.
+              rhs,
+            );
+          }
         }
-      }
 
-      _ => {
-        //.
-        ()
+        Ok(None)
+      }
+    }
+  }
+
+  /// Register a builtin function in the environment.
+  pub fn register_builtin(
+    //.
+    &mut self,
+    name: Symbol,
+    f: Builtin,
+  ) {
+    self.registry.insert(name, f);
+  }
+
+  /// Register a package in the environment.
+  pub fn register_package<P>(
+    //.
+    &mut self,
+    package: P,
+  ) -> Result<&mut Self, Error>
+  where
+    P: Package,
+  {
+    package.build(self)?;
+    Ok(self)
+  }
+
+  fn substitute_variable(&self, acc: &mut Term, sub: &Tree) {
+    if let Some(res) = self.variables.get(sub) {
+      acc.subs(sub, res)
+    }
+  }
+
+  fn resolve_function(&self, mut acc: Term, sub: &Tree) -> Result<Term, Error> {
+    if let Tree::Fun(Function::MapExpr { map, arg }) = sub {
+      if let Some(res) = self.functions.get(map) {
+        if arg.len() != res.arg.len() {
+          return Err(Error {
+            kind: ErrorKind::Context(Semantic::NumArg(map.clone(), Some((res.arg.len(), arg.len())))), //.
+            spot: None,
+          });
+        }
+
+        let mut body = res.map.clone();
+        for (arg, param) in res.arg.iter().zip(arg.iter()) {
+          body.subs(arg, param)
+        }
+
+        acc.subs(sub, &body);
+        return self.compose(
+          acc, //.
+        );
       }
     }
 
     Ok(acc)
   }
 
-  fn compose(&self, lhs: Expr) -> Result<Expr, LangError> {
+  fn compose(&self, lhs: Term) -> Result<Term, Error> {
     lhs.iter().fold_rec(Ok(lhs.clone()), &|acc, sub| {
       let mut acc = acc?;
-      // substitute rules
-      self.substitute_rules(&mut acc, sub);
-      // resolve definitions
-      self.resolve_definitions(
+      // substitute variable
+      self.substitute_variable(&mut acc, sub);
+      // resolve function
+      self.resolve_function(
         acc, //.
         sub,
       )
@@ -201,90 +204,97 @@ impl Interpreter {
   }
 }
 
-pub fn parse(stmt: &str) -> Result<Expr, LangError> {
-  let ast = Parser::parse(stmt, &Session { f: HashMap::new(), prev: None })?;
-  if let Ast::Expr(expr) = ast {
-    //
-    // cf. doc
-    // proof
-    Ok(expr)
-  } else {
-    Err(LangError::Rule {
-      rule: String::from("can only parse expressions, use the interpreter for other constructions"),
-    })
+/// Parse a single expression without creating a dedicated [`Environment`].
+pub fn parse(stmt: &str) -> Result<Term, Error> {
+  let (Ast::Expr(rhs) | Ast::Def(_, rhs)) = Parser::parse(stmt, &Environment::default())?;
+  Ok(rhs)
+}
+
+/// A package trait that extends [`Environment`] functionalities.
+pub trait Package {
+  /// Build package features into the [`Environment`].
+  fn build(&self, env: &mut Environment) -> Result<(), Error>;
+  /// Retrieve package name.
+  fn name(&self) -> &str {
+    any::type_name::<Self>()
+  }
+
+  /// Try to map a list of [`Tree`] to a fixed number of elements.
+  fn map_fixed<F: Fn([Tree; N]) -> Result<Term, Construction>, const N: usize>(
+    //.
+    f: F,
+    v: Vec<Tree>,
+  ) -> Result<Term, Construction> {
+    let m = v.len();
+    <[Tree; N]>::try_from(v).map_or(
+      Err(Some((
+        N, //.
+        m,
+      ))),
+      f,
+    )
   }
 }
 
-/// Map a Vec of expressions to a fixed number of arguments
-pub fn map_args<F: Fn([Expr; E]) -> Expr, const E: usize>(f: F, arg: Vec<Expr>) -> Result<Expr, (usize, usize)> {
-  let given = arg.len();
-  <[Expr; E]>::try_from(arg).map_or(Err((E, given)), |arr| Ok(f(arr)))
+/// A list of semantic rules.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Semantic {
+  /// A constant or number on declaration's lhs.
+  CteDef(Term),
+  /// Invalid function arguments.
+  NumArg(Symbol, Construction),
 }
 
-pub type Span = ops::Range<usize>;
-
-#[derive(Debug, Clone)]
-pub enum LangError {
-  /// Rule error
-  Rule {
+/// A list of general lang errors.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ErrorKind {
+  /// A lexical error.
+  Lexical,
+  /// A parsing error from invalid token.
+  Parsing(String),
+  /// A context error during evaluation.
+  Context(Semantic),
+  /// An internal error.
+  Internal {
     //.
-    rule: String,
-  },
-
-  /// Lexical error
-  Lex,
-  /// End error
-  End,
-  /// Recursive error
-  Rec,
-
-  /// Parsing integer error
-  Integer { err: std::num::ParseIntError, span: Span },
-
-  /// Unexpected operator
-  Expected {
-    //.
-    expr: &'static str,
-    span: Span,
+    file: &'static str,
+    line: u32,
   },
 }
 
-impl fmt::Display for LangError {
+/// An error that occurs during interpreting phases (lex, parse or eval).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Error {
+  kind: ErrorKind,
+  spot: Option<usize>,
+}
+
+impl error::Error for Error {}
+
+impl fmt::Display for Error {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    match &self.kind {
+      ErrorKind::Lexical => write!(f, "invalid syntax"),
+      ErrorKind::Parsing(message) => write!(f, "expected {message}"),
+      ErrorKind::Context(feature) => feature.fmt(f),
+      ErrorKind::Internal { file, line } => write!(f, "internal error in [{file}:{line}]"),
+    }?;
+
+    if let Some(spot) = &self.spot {
+      write!(f, " at ({spot:?})")?;
+    }
+
+    Ok(())
+  }
+}
+
+impl fmt::Display for Semantic {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match self {
-      LangError::Rule { rule } => write!(f, "{}", rule),
-
-      LangError::Lex => write!(f, "invalid syntax"),
-      LangError::End => write!(f, "unexpected end of statement"),
-      LangError::Rec => write!(f, "recursive rule detected"),
-
-      LangError::Integer {
-        //.
-        err,
-        span,
-      } => {
-        write!(
-          //.
-          f,
-          "failed to parse integer ({}) [at {:?}]",
-          err,
-          span
-        )
-      }
-
-      LangError::Expected {
-        //.
-        expr,
-        span,
-      } => {
-        write!(
-          //.
-          f,
-          "expected {} [at {:?}]",
-          expr,
-          span
-        )
-      }
+      Semantic::CteDef(lhs) => write!(f, "definition requires a non-constant expression, found `{lhs}` on lhs"),
+      Semantic::NumArg(map, Some((arg, given))) => write!(f, "function `{map}` takes {arg} argument(s) ({given} given)"),
+      Semantic::NumArg(map, None) => write!(f, "function `{map}` received invalid argument(s) type(s)"),
     }
   }
 }

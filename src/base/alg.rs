@@ -1,19 +1,25 @@
+use std::cmp::Ordering;
 use std::fmt;
-use std::ops::{Add, Div, Mul, Neg, Sub};
+use std::ops::{Add, Mul};
 
-use crate::{Constant, Expr, Form, Number, Rational, Set, SymbolicResult};
+use crate::{Constant, Form, Integer, Number, Rational, Structure, SymbolicResult};
+use crate::{Edge, Expr, Tree};
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Copy)]
+/// A list of unary operations.
+#[derive(Debug, Clone, Hash, PartialEq, PartialOrd, Eq, Ord, Copy)]
 pub enum UOp {
   Id,
+  Fact,
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Copy)]
+/// A list of binary operations.
+#[derive(Debug, Clone, Hash, PartialEq, PartialOrd, Eq, Ord, Copy)]
 pub enum BOp {
   Pow,
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Copy)]
+/// A list of associative operations.
+#[derive(Debug, Clone, Hash, PartialEq, PartialOrd, Eq, Ord, Copy)]
 pub enum AOp {
   Add,
   Mul,
@@ -22,31 +28,31 @@ pub enum AOp {
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Assoc {
   pub map: AOp,
-  pub arg: Vec<Expr>,
+  pub arg: Vec<Edge>,
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum Algebra {
   UExpr {
     map: UOp,
-    arg: Box<Expr>,
+    arg: Edge,
   },
 
   BExpr {
     map: BOp,
-    arg: (Box<Expr>, Box<Expr>),
+    arg: (Edge, Edge),
   },
 
   AssocExpr(
-    //.
-    Assoc,
+    Assoc, //.
   ),
 }
 
 impl Algebra {
-  pub fn trivial(self) -> SymbolicResult<Expr> {
+  /// Apply algebraic simplifications.
+  pub fn alg_trivial(&self) -> SymbolicResult<Tree> {
     match self {
-      Algebra::AssocExpr(expr) => Ok(expr.flatten()?.trivial()?.arity()),
+      Algebra::AssocExpr(expr) => expr.trivial(),
 
       Algebra::UExpr {
         //.
@@ -54,125 +60,125 @@ impl Algebra {
         arg,
       } => arg.trivial(),
 
+      Algebra::UExpr {
+        //.
+        map: UOp::Fact,
+        arg,
+      } => match arg.trivial()? {
+        Tree::Num(Number::Z(n)) => crate::base::algebra::factorial(n).map_or(Err(Form {}), |f| Ok(Tree::from(f))),
+        expr => Ok(expr.fact()),
+      },
+
       Algebra::BExpr {
         //.
         map: BOp::Pow,
         arg: (lhs, rhs),
       } => {
         match (lhs.trivial()?, rhs.trivial()?) {
-          // ```_∞^∞ = ~∞```
-          // ```_∞^-∞ = 0```
-          // ```_∞^~∞ = ?```
-          (Expr::Cte(Constant::Infinity(_)), Expr::Cte(Constant::Infinity(1))) => Ok(Expr::Cte(Constant::Infinity(0))),
-          (Expr::Cte(Constant::Infinity(_)), Expr::Cte(Constant::Infinity(-1))) => Ok(Expr::ZERO),
-          (Expr::Cte(Constant::Infinity(_)), Expr::Cte(Constant::Infinity(0))) => Err(Form {}),
+          // ```z∞^∞ -> ~∞```
+          // ```z∞^-∞ -> 0```
+          // ```z∞^~∞ -> ?```
+          (Tree::Cte(Constant::Infinity(_)), Tree::Cte(Constant::Infinity(Ordering::Greater))) => Ok(Tree::Cte(Constant::Infinity(Ordering::Equal))),
+          (Tree::Cte(Constant::Infinity(_)), Tree::Cte(Constant::Infinity(Ordering::Less))) => Ok(Tree::ZERO),
+          (Tree::Cte(Constant::Infinity(_)), Tree::Cte(Constant::Infinity(Ordering::Equal))) => Err(Form {}),
 
-          // ```_∞^0 = 1^_∞ = ?```
-          (Expr::Cte(Constant::Infinity(_)), Expr::ZERO) | (Expr::ONE, Expr::Cte(Constant::Infinity(_))) => Err(Form {}),
+          // ```z∞^0 = +-1^z∞ -> ?```
+          (Tree::Cte(Constant::Infinity(_)), Tree::ZERO) | (Tree::ONE | Tree::NEG_ONE, Tree::Cte(Constant::Infinity(_))) => Err(Form {}),
 
-          // ```_∞^y, y ∈ ℚ```
-          (Expr::Cte(Constant::Infinity(z)), Expr::Num(rhs)) => {
-            // ```_∞^y -> 0, y < 0```
-            // ```+∞^y ->  ∞, y > 0```
-            // ```-∞^y ->  ∞, y mod 2 = 0```
-            // ```-∞^y -> -∞, y mod 2 = 1```
-            let n = rhs.num();
-            Ok((n < 0).then(|| Expr::ZERO).unwrap_or(Expr::Cte(Constant::Infinity(z.pow(n.div(rhs.den()).rem_euclid(2) as u32)))))
-          }
+          // ``` z∞^y, y ∈ ℚ```
+          // ``` z∞^y ->   0, y < 0```
+          // ```+~∞^y -> +~∞, y > 0```
+          // ``` -∞^y ->   ∞, y mod 2 = 0```
+          // ``` -∞^y ->  -∞, y mod 2 = 1```
+          (Tree::Cte(Constant::Infinity(_)), Tree::Num(rhs)) if rhs.num().is_negative() => Ok(Tree::ZERO),
+          (Tree::Cte(Constant::Infinity(z)), Tree::Num(_)) if z.is_ge() => Ok(Tree::Cte(Constant::Infinity(z))),
+          (Tree::Cte(Constant::Infinity(Ordering::Less)), Tree::Num(rhs)) => Ok(Tree::Cte(Constant::Infinity(match (rhs.num() / rhs.den()).rem_euclid(2) {
+            0 => Ordering::Greater,
+            _ => Ordering::Less,
+          }))),
 
-          // ```x^_∞, x ∈ ℚ```
-          (Expr::Num(lhs), Expr::Cte(Constant::Infinity(z))) => {
-            // ```x^_∞ -> 0, |x|_∞ < 0```
-            // ```x^+∞ ->  ∞, |x|+∞ > 0, x > 0```
-            // ```x^+∞ -> ~∞, |x|+∞ > 0, x < 0```
-            // ```x^-∞ ->  ∞, |x|-∞ < 0, x > 0```
-            // ```x^-∞ -> ~∞, |x|-∞ < 0, x < 0```
-            let n = (lhs.num().abs() - lhs.den()) * z;
-            Ok((n < 0).then(|| Expr::ZERO).unwrap_or(Expr::Cte(Constant::Infinity(i128::from(lhs.num() > 0)))))
-          }
+          // ```x^+-∞, x ∈ ℚ```
+          // ```x^+-∞ ->  0, |x|+-∞ < 0```
+          // ```x^+-∞ ->  ∞, |x|+-∞ = 0, x > 0```
+          // ```x^+-∞ -> ~∞, |x|+-∞ = 0, x < 0```
+          (Tree::Num(lhs), Tree::Cte(Constant::Infinity(z))) if z.is_ne() => Ok(match (lhs.num().abs().cmp(&lhs.den()).cmp(&z), lhs.num().is_positive()) {
+            (Ordering::Greater | Ordering::Less, _) => Tree::ZERO,
+            (Ordering::Equal, true) => Tree::Cte(Constant::Infinity(Ordering::Greater)),
+            (Ordering::Equal, false) => Tree::Cte(Constant::Infinity(Ordering::Equal)),
+          }),
 
           // ```I^y, y ∈ ℤ```
-          (Expr::Cte(Constant::i), Expr::Num(Number::Z(rhs))) => {
-            Ok(match rhs.rem_euclid(4) {
-              // ```I^y =  1, y mod 4 = 0```
-              // ```I^y =  I, y mod 4 = 1```
-              // ```I^y = -1, y mod 4 = 2```
-              // ```I^y = -I, y mod 4 = 3```
-              0 => Expr::ONE,
-              1 => Expr::Cte(Constant::i),
-              2 => Expr::NEG_ONE,
-              _ => Expr::Cte(Constant::i).neg(),
-            })
-          }
+          // ```I^y =  1, y mod 4 = 0```
+          // ```I^y =  I, y mod 4 = 1```
+          // ```I^y = -1, y mod 4 = 2```
+          // ```I^y = -I, y mod 4 = 3```
+          (Tree::Cte(Constant::I), Tree::Num(Number::Z(rhs))) => Ok(match rhs.rem_euclid(4) {
+            0 => Tree::ONE,
+            1 => Tree::Cte(Constant::I),
+            2 => Tree::NEG_ONE,
+            _ => Tree::Cte(Constant::I).neg(),
+          }),
 
-          // ```0^0 = ?```
-          (Expr::ZERO, Expr::ZERO) => Err(Form {}),
-          // ```0^y = 0, y ∈ ℚ > 0```
-          (Expr::ZERO, Expr::Num(rhs)) => {
-            if rhs //.
-              .num()
-              .is_negative()
-            {
-              Ok(Expr::Cte(Constant::Infinity(0)))
-            } else {
-              Ok(Expr::ZERO)
-            }
-          }
-
-          // ```sqrt(-1) = (-1)^(1/2) = I```
-          //(Expr::NEG_ONE, Expr::HALF) => Ok(Expr::Cte(Constant::i)),
-
-          // ```1^x = x^0 = 1```
-          (Expr::ONE, _) | (_, Expr::ZERO) => Ok(Expr::ONE),
-          // ```x^1 = x```
-          (lhs, Expr::ONE) => Ok(lhs),
-
-          // ```x ∈ ℚ, y ∈ ℤ```
-          (Expr::Num(lhs), Expr::Num(Number::Z(rhs))) => Ok(Expr::Num(lhs.powi(rhs)?)),
-          // ```x ∈ ℤ, y ∈ ℚ```
-          (Expr::Num(Number::Z(lhs)), Expr::Num(rhs)) => match rhs.clone().try_root(lhs.abs()) {
-            Some(Number::Z(1)) | None => Ok(Expr::from(lhs).pow(Expr::Num(rhs))),
-            Some(root) => {
-              let root = Expr::Num(root);
-
-              if lhs.is_negative() {
-                // ```(-x)^y = x^y*(-1)^y```
-                let (
-                  //.
-                  i,
-                  r,
-                ) = rhs.divmod();
-                if i != 0 {
-                  // ```(-x)^(p/q) = x^(p/q)*(-1)^div(p, q)*(-1)^(mod(p, q)/q)```
-                  (root * Expr::NEG_ONE.pow(Expr::from(i)) * Expr::NEG_ONE.pow(Expr::Num(Number::Q(Rational::new(r, rhs.den()))))).trivial()
-                } else {
-                  // ```(-x)^(p/q) = x^(p/q)*(-1)^(p/q)```
-                  (root * Expr::NEG_ONE.pow(Expr::Num(rhs))).trivial()
-                }
-              } else {
-                Ok(root)
-              }
-            }
+          // ```0^y, y ∈ ℚ```
+          // ```0^y =  0, y > 0```
+          // ```0^y = ~∞, y < 0```
+          // ```0^0 =  ?```
+          (Tree::ZERO, Tree::Num(rhs)) => match rhs.num().cmp(&0) {
+            Ordering::Greater => Ok(Tree::ZERO),
+            Ordering::Less => Ok(Tree::Cte(Constant::Infinity(Ordering::Equal))),
+            Ordering::Equal => Err(Form {}),
           },
 
+          // ```sqrt(-1) = (-1)^(1/2) = I```
+          (Tree::NEG_ONE, Tree::Num(Number::Q(Rational { num: 1, den: 2 }))) => Ok(Tree::Cte(Constant::I)),
+          // ```1^x = x^0 = 1```
+          (Tree::ONE, _) | (_, Tree::ZERO) => Ok(Tree::ONE),
+          // ```x^1 = x```
+          (lhs, Tree::ONE) => Ok(lhs),
+
+          // ```x ∈ ℚ, y ∈ ℤ```
+          (Tree::Num(lhs), Tree::Num(Number::Z(rhs))) => Ok(Tree::Num(lhs.powi(rhs)?)),
+          // ```x ∈ ℤ, y ∈ ℚ```
+          (Tree::Num(Number::Z(lhs)), Tree::Num(rhs)) => Algebra::trivial_root(lhs, rhs),
+
           // ```(b^e)^y = b^(e*y), y ∈ ℤ```
-          (Expr::Alg(Algebra::BExpr { map: BOp::Pow, arg: (b, e) }), rhs) if rhs.dom().le(&Set::Z) => b.pow(e.mul(rhs)).trivial(),
+          (Tree::Alg(Algebra::BExpr { map: BOp::Pow, arg: (b, e) }), r) if rhs.dom().le(&Structure::Z) => b.pow(e.mul(r)).trivial(),
 
           // ```(x_1*x_2*...*x_n)^y = x_1^y*x_2^y*...*x_n^y, y ∈ ℤ```
-          (Expr::Alg(Algebra::AssocExpr(Assoc { map: AOp::Mul, arg })), Expr::Num(rhs)) if rhs.dom().le(&Set::Z) => {
-            let prod = arg.into_iter().map(|sub| sub.pow(Expr::Num(rhs.clone()))).collect();
-            Expr::assoc(AOp::Mul, prod).trivial()
+          (Tree::Alg(Algebra::AssocExpr(Assoc { map: AOp::Mul, arg })), Tree::Num(rhs)) if rhs.dom().le(&Structure::Z) => {
+            let prod = arg.into_iter().map(|sub| sub.pow(Tree::Num(rhs.clone())).edge()).collect();
+            Tree::assoc(AOp::Mul, prod).trivial()
           }
 
           (lhs, rhs) => {
-            Ok(lhs.pow(rhs)) //.
+            Ok(lhs.pow(
+              rhs, //.
+            ))
           }
         }
       }
     }
   }
 
-  pub fn ord(&self) -> u64 {
+  /// Apply root simplifications.
+  pub fn trivial_root(lhs: Integer, rhs: Number) -> SymbolicResult<Tree> {
+    match rhs.clone().try_root(lhs.abs()) {
+      Some(Number::Z(1)) | None => Ok(Tree::from(lhs).pow(Tree::Num(rhs))),
+      Some(root) => {
+        let root = Tree::Num(root);
+        if lhs.is_negative() {
+          // ```(-x)^(p/q) = x^(p/q)*(-1)^div(p, q)*(-1)^(mod(p, q)/q)```
+          let (i, r) = rhs.divrem();
+          root.mul(Tree::NEG_ONE.pow(Tree::from(i)).mul(Tree::NEG_ONE.pow(Tree::from(Rational::new(r, rhs.den()))))).trivial()
+        } else {
+          Ok(root)
+        }
+      }
+    }
+  }
+
+  // Helpers
+  pub(crate) fn helper_prec(&self) -> u64 {
     match self {
       Algebra::UExpr {
         //.
@@ -208,16 +214,17 @@ impl Algebra {
     }
   }
 
-  fn require_parenthesis(&self, o: &Expr) -> bool { o.len() > 1 && o.ord() < self.ord() }
+  fn require_parenthesis(&self, o: &Tree) -> bool {
+    o.helper_len() > 1 && o.helper_prec() < self.helper_prec()
+  }
 
-  fn fmt_par(&self, o: &Expr) -> String {
+  fn fmt_par(&self, o: &Tree) -> String {
     if self.require_parenthesis(o) {
-      format!("({})", o)
+      format!("({o})")
     } else {
       format!(
         // assoc
-        "{}", 
-        o
+        "{o}"
       )
     }
   }
@@ -230,18 +237,21 @@ impl fmt::Display for Algebra {
         //.
         map: UOp::Id,
         arg,
-      } => write!(f, "Id({})", arg),
+      } => write!(f, "Id({arg})"),
+
+      Algebra::UExpr {
+        //.
+        map: UOp::Fact,
+        arg,
+      } => write!(f, "{}!", self.fmt_par(arg)),
 
       Algebra::BExpr {
         //.
         map,
         arg,
-      } => {
-        //.
-        match map {
-          BOp::Pow => write!(f, "{}^{}", self.fmt_par(&arg.0), self.fmt_par(&arg.1)),
-        }
-      }
+      } => match map {
+        BOp::Pow => write!(f, "{}^{}", self.fmt_par(&arg.0), self.fmt_par(&arg.1)),
+      },
 
       Algebra::AssocExpr(Assoc {
         //.
@@ -257,8 +267,7 @@ impl fmt::Display for Algebra {
             match map {
               AOp::Add => {
                 write!(
-                  //.
-                  f,
+                  f, //.
                   " + {}",
                   self.fmt_par(e)
                 )?;
@@ -266,8 +275,7 @@ impl fmt::Display for Algebra {
 
               AOp::Mul => {
                 write!(
-                  //.
-                  f,
+                  f, //.
                   "*{}",
                   self.fmt_par(e)
                 )?;
@@ -283,120 +291,73 @@ impl fmt::Display for Algebra {
 }
 
 impl Assoc {
-  fn flatten(mut self) -> SymbolicResult<Assoc> {
-    let mut arg = Vec::new();
+  fn trivial(&self) -> SymbolicResult<Tree> {
+    let mut flat = Vec::new();
+    // Apply associative property.
+    let Assoc { map, mut arg } = self.clone().flatten(&mut flat)?;
+    // Apply commutative property.
+    flat.sort_by(|lhs, rhs| self.map.cmp_poly(lhs.is_value().cmp(&rhs.is_value()), Ordering::Equal).then(rhs.cmp(lhs)));
 
-    while let Some(expr) = self.arg.pop() {
-      match expr.trivial()? {
-        Expr::Alg(Algebra::AssocExpr(Assoc {
-          //.
-          map: smap,
-          arg: sarg,
-        }))
-          if self.map == smap =>
-        {
-          sarg.into_iter().for_each(|sub| self.arg.push(sub))
-        }
-
-        expr => {
-          arg.push(expr) //.
-        }
-      }
-    }
-
-    Ok(Assoc {
-      //.
-      map: self.map,
-      arg,
-    })
-  }
-
-  fn arity(mut self) -> Expr {
-    match self.arg.len() {
-      0 => self.id(),
-      1 => self.arg.remove(0),
-
-      _ => {
-        Expr::assoc(
-          self.map, //.
-          self.arg,
-        )
-      }
-    }
-  }
-
-  fn trivial(mut self) -> SymbolicResult<Assoc> {
-    let mut arg = Vec::new();
-
-    self.arg.sort_by(|lhs, rhs| lhs.cmp(rhs).reverse());
-    while !self.arg.is_empty() {
-      let lhs_arg = self.arg.pop();
-      let rhs_arg = self.arg.pop();
+    while !flat.is_empty() {
+      let lhs_arg = flat.pop();
+      let rhs_arg = flat.pop();
 
       match (lhs_arg, rhs_arg) {
         (None, None) => break,
-        (Some(expr), None) | (None, Some(expr)) => {
-          arg.push(expr) //.
+        (Some(tree), None) | (None, Some(tree)) => {
+          arg.push(
+            tree.edge(), //.
+          )
         }
 
-        (Some(lhs), Some(rhs)) => match (self.map, lhs, rhs) {
-          (AOp::Add, Expr::Cte(Constant::Infinity(lhs)), Expr::Cte(Constant::Infinity(rhs))) if lhs != rhs => return Err(Form {}),
-          // ```0*_∞ = ?```
-          (AOp::Mul, Expr::ZERO, Expr::Cte(Constant::Infinity(_))) => return Err(Form {}),
+        (Some(lhs), Some(rhs)) => match (map, lhs, rhs) {
+          // ```z1∞ + z2∞ = ?, z1 != z2```
+          (AOp::Add, Tree::Cte(Constant::Infinity(lhs)), Tree::Cte(Constant::Infinity(rhs))) if lhs != rhs => return Err(Form {}),
+          // ```0*z∞ = ?```
+          (AOp::Mul, Tree::ZERO, Tree::Cte(Constant::Infinity(_))) => return Err(Form {}),
 
           // ```0*x = 0```
-          (AOp::Mul, Expr::ZERO, _) => {
-            arg.resize_with(1, || Expr::ZERO);
+          (AOp::Mul, Tree::ZERO, _) => {
+            arg.resize_with(1, || Tree::edge(Tree::ZERO));
             break;
           }
 
-          // ```x + _∞ = _∞```
-          (AOp::Add, _, Expr::Cte(Constant::Infinity(z))) | (AOp::Add, Expr::Cte(Constant::Infinity(z)), _) => self.arg.push(Expr::Cte(Constant::Infinity(z))),
-          // ```x*~∞ = ~∞```
-          (AOp::Mul, _, Expr::Cte(Constant::Infinity(0))) | (AOp::Mul, Expr::Cte(Constant::Infinity(0)), _) => self.arg.push(Expr::Cte(Constant::Infinity(0))),
+          // ```x + z∞ = z∞```
+          (AOp::Add, _, Tree::Cte(Constant::Infinity(z))) | (AOp::Add, Tree::Cte(Constant::Infinity(z)), _) => flat.push(Tree::Cte(Constant::Infinity(z))),
+          // ```~∞*x = ~∞```
+          (AOp::Mul, Tree::Cte(Constant::Infinity(Ordering::Equal)), _) | (AOp::Mul, _, Tree::Cte(Constant::Infinity(Ordering::Equal))) => flat.push(Tree::Cte(Constant::Infinity(Ordering::Equal))),
 
-          // ```_x ∞*_y ∞ = sgn(_x*_y)∞```
-          (AOp::Mul, Expr::Cte(Constant::Infinity(lhs)), Expr::Cte(Constant::Infinity(rhs))) => self.arg.push(Expr::Cte(Constant::Infinity(lhs.mul(rhs)))),
-          // ```x*_∞ = sgn(x*_)∞, x ∈ ℚ```
-          (AOp::Mul, Expr::Num(lhs), Expr::Cte(Constant::Infinity(z))) => self.arg.push(Expr::Cte(Constant::Infinity(lhs.num().mul(z).signum()))),
+          // ```z1∞*z2∞ = sgn(z1*z2)∞```
+          (AOp::Mul, Tree::Cte(Constant::Infinity(lhs)), Tree::Cte(Constant::Infinity(rhs))) => flat.push(Tree::Cte(Constant::Infinity(Constant::sign_cmp(lhs, rhs)))),
+
+          // ```x*z∞ = sgn(x*z)∞, x ∈ ℚ```
+          (AOp::Mul, Tree::Num(lhs), Tree::Cte(Constant::Infinity(z))) => flat.push(Tree::Cte(Constant::Infinity(Constant::sign_cmp(lhs.num().cmp(&0), z)))),
 
           // ```x, y ∈ ℚ```
-          (AOp::Add, Expr::Num(lhs), Expr::Num(rhs)) => self.arg.push(Expr::Num(lhs.add(rhs)?)),
-          (AOp::Mul, Expr::Num(lhs), Expr::Num(rhs)) => self.arg.push(Expr::Num(lhs.mul(rhs)?)),
+          (AOp::Add, Tree::Num(lhs), Tree::Num(rhs)) => flat.push(Tree::Num(lhs.add(rhs)?)),
+          (AOp::Mul, Tree::Num(lhs), Tree::Num(rhs)) => flat.push(Tree::Num(lhs.mul(rhs)?)),
 
-          // ```0 + x = x```
-          (AOp::Add, Expr::ZERO, rhs) => self.arg.push(rhs),
+          // ```x + 0 = x```
+          (AOp::Add, lhs, Tree::ZERO) => flat.push(lhs),
           // ```1*x = x```
-          (AOp::Mul, Expr::ONE, rhs) => self.arg.push(rhs),
-
-          // ```x*(y_1 + y_2 + ... + y_n) = x*y_1 + x*y_2 + ... + x*y_n, x ∈ ℚ```
-          (AOp::Mul, Expr::Num(lhs), Expr::Alg(Algebra::AssocExpr(Assoc { map: AOp::Add, arg }))) if lhs.dom().le(&Set::Q) => {
-            let sum = arg.into_iter().map(|sub| sub.mul(Expr::Num(lhs.clone()))).collect();
-            self.arg.push(Expr::assoc(AOp::Add, sum).trivial()?)
-          }
+          (AOp::Mul, Tree::ONE, rhs) => flat.push(rhs),
 
           (_, lhs, rhs) => {
-            let (lhs_base, lhs_coeff) = self.split(lhs)?;
-            let (rhs_base, rhs_coeff) = self.split(rhs)?;
+            let (lhs_base, lhs_coeff) = self.split(&lhs)?;
+            let (rhs_base, rhs_coeff) = self.split(&rhs)?;
 
             let factor = if lhs_base == rhs_base {
               // ```c*x + d*x = (c + d)*x, {c, d} ∈ ℚ``` or
               // ```x^c * x^d = x^(c + d)```
               let coeff = lhs_coeff.add(rhs_coeff).trivial()?;
-              self.merge(lhs_base, coeff).trivial()?
+              self.merge(lhs_base, coeff)?
             } else {
-              arg.push(self.merge(
-                lhs_base, //.
-                lhs_coeff,
-              ));
-              self.merge(
-                rhs_base, //.
-                rhs_coeff,
-              )
+              arg.push(lhs.edge());
+              rhs
             };
 
-            if factor != self.id() {
-              self.arg.push(
+            if factor != map.id() {
+              flat.push(
                 factor, //.
               )
             }
@@ -405,152 +366,141 @@ impl Assoc {
       }
     }
 
-    Ok(Assoc {
-      //.
-      map: self.map,
+    Assoc {
+      map, //.
       arg,
+    }
+    .arity()
+  }
+
+  fn flatten(mut self, flat: &mut Vec<Tree>) -> SymbolicResult<Assoc> {
+    flat.reserve(self.arg.len());
+    while let Some(expr) = self.arg.pop() {
+      match expr.trivial()? {
+        Tree::Alg(Algebra::AssocExpr(Assoc {
+          //.
+          map: smap,
+          arg: sarg,
+        }))
+          if self.map == smap =>
+        {
+          sarg.iter().for_each(|sub| self.arg.push(sub.clone()))
+        }
+
+        expr => {
+          flat.push(
+            expr, //.
+          )
+        }
+      }
+    }
+
+    Ok(self)
+  }
+
+  fn arity(mut self) -> SymbolicResult<Tree> {
+    Ok(match self.arg.len() {
+      0 => self.map.id(),
+      1 => self.arg.remove(0).trivial()?,
+
+      _ => Tree::assoc(
+        self.map, //.
+        self.arg,
+      ),
     })
   }
 
-  fn split(&self, expr: Expr) -> SymbolicResult<(Expr, Expr)> {
-    // Splitting
-    // [`split`](x) = (b, c)
-    // [`split`](x) = [`split`]([`merge`](b, c)) = (b, c)
-    match (
-      //.
-      self.map, &expr,
-    ) {
+  /// Split an associative operation.
+  /// [`split`](x) = (b, c)
+  /// [`split`](x) = [`split`]([`merge`](b, c)) = (b, c)
+  fn split(&self, expr: &Tree) -> SymbolicResult<(Tree, Tree)> {
+    match (self.map, &expr) {
       (
         AOp::Add,
-        Expr::Alg(Algebra::AssocExpr(Assoc {
+        Tree::Alg(Algebra::AssocExpr(Assoc {
           //.
           map: AOp::Mul,
           arg,
         })),
       ) => {
-        if let Some((c @ Expr::Num(_), b)) = arg.split_first() {
+        if let Some((c, b)) = arg.split_first() {
           return Ok((
-            Expr::assoc(AOp::Mul, b.to_vec()).trivial()?, // ```c*b```
-            c.clone(),
+            Tree::assoc(AOp::Mul, b.to_vec()).trivial()?,
+            Tree::from(c), // ```c*b```
           ));
         }
       }
-
-      (
-        AOp::Mul,
-        Expr::Alg(Algebra::BExpr {
-          //.
-          map: BOp::Pow,
-          arg: (b, c),
-        }),
-      ) => {
+      (AOp::Mul, Tree::Alg(Algebra::BExpr { map: BOp::Pow, arg: (b, c) })) => {
         return Ok((
-          *b.clone(), // ```b^c```
-          *c.clone(),
+          Tree::from(b),
+          Tree::from(c), // ```b^c```
         ));
       }
 
       _ => {
         //.
-        ()
       }
     }
 
     Ok((
-      expr, // ```b```
-      Expr::ONE,
+      expr.clone(), // ```b```
+      Tree::ONE,
     ))
   }
 
-  fn merge(&self, base: Expr, coeff: Expr) -> Expr {
-    // Merging
-    // [`merge`](b, c) = x
-    // [`merge`](b, c) = [`merge`]([`split`](x)) = x
-    if coeff != Expr::ONE {
+  /// Merge an associative base and coefficient.
+  /// [`merge`](b, c) = x
+  /// [`merge`](b, c) = [`merge`]([`split`](x)) = x
+  fn merge(&self, base: Tree, coeff: Tree) -> SymbolicResult<Tree> {
+    if coeff != Tree::ONE {
       match self.map {
         // ```c*b```
         AOp::Add => coeff.mul(base),
         // ```b^c```
         AOp::Mul => base.pow(coeff),
       }
+      .trivial()
     } else {
       // ```1*b = b``` or
       // ```b^1 = b```
-      base
-    }
-  }
-
-  const fn id(&self) -> Expr {
-    // Identity element
-    // (S, ∘), ∃e, e ∘ a = a ∘ e = a ∀a ∈ S
-    // [Semigroup](https://en.wikipedia.org/wiki/Semigroup)
-    match self.map {
-      // ```Id(+) = 0```
-      AOp::Add => Expr::ZERO,
-      // ```Id(*) = 1```
-      AOp::Mul => Expr::ONE,
+      Ok(base)
     }
   }
 }
 
-impl Expr {
-  /// ```a^b```
-  pub fn r#pow(
-    //.
-    self,
-    o: Self,
-  ) -> Self {
-    Self::Alg(Algebra::BExpr {
-      map: BOp::Pow,
-      arg: (Box::new(self), Box::new(o)),
-    })
+impl AOp {
+  /// Return the associative identity element.
+  /// (S, ∘), ∃e, e ∘ a = a ∘ e = a ∀a ∈ S
+  /// [Semigroup](https://en.wikipedia.org/wiki/Semigroup)
+  const fn id(&self) -> Tree {
+    match self {
+      // ```Id(+) = 0```
+      AOp::Add => Tree::ZERO,
+      // ```Id(*) = 1```
+      AOp::Mul => Tree::ONE,
+    }
   }
 
-  /// ```b√a```
-  pub fn r#root(self, o: Self) -> Self { self.pow(Expr::ONE / o) }
+  pub const fn cmp_poly(&self, ord: Ordering, poly_cmp: Ordering) -> Ordering {
+    match self {
+      // ```x + c```
+      AOp::Add => poly_cmp.then(ord.reverse()),
+      // ```c*x```
+      AOp::Mul => ord,
+    }
+  }
+}
 
-  /// ```√a```
-  pub fn r#sqrt(self) -> Self { self.pow(Expr::HALF) }
-
-  pub fn r#assoc(
+impl Tree {
+  pub(crate) fn assoc(
     //.
     map: AOp,
-    arg: Vec<Expr>,
-  ) -> Self {
-    Self::Alg(Algebra::AssocExpr(Assoc {
+    arg: Vec<Edge>,
+  ) -> Tree {
+    Tree::Alg(Algebra::AssocExpr(Assoc {
       //.
       map,
       arg,
     }))
   }
-}
-
-impl Add for Expr {
-  type Output = Self;
-  /// ```a + b```
-  fn add(self, o: Self) -> Self { Self::Alg(Algebra::AssocExpr(Assoc { map: AOp::Add, arg: vec![self, o] })) }
-}
-
-impl Mul for Expr {
-  type Output = Self;
-  /// ```a*b```
-  fn mul(self, o: Self) -> Self { Self::Alg(Algebra::AssocExpr(Assoc { map: AOp::Mul, arg: vec![self, o] })) }
-}
-
-impl Neg for Expr {
-  type Output = Self;
-  /// ```-a = (-1)*a```
-  fn neg(self) -> Self { Self::NEG_ONE.mul(self) }
-}
-
-impl Sub for Expr {
-  type Output = Self;
-  /// ```a - b = a + (-b)```
-  fn sub(self, o: Self) -> Self { self.add(o.neg()) }
-}
-
-impl Div for Expr {
-  type Output = Self;
-  /// ```a/b = a * b^-1```
-  fn div(self, o: Self) -> Self { self.mul(o.pow(Self::NEG_ONE)) }
 }

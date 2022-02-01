@@ -1,13 +1,15 @@
 use std::fmt;
 
-use crate::{Expr, Form, Symbol, SymbolicResult};
+use crate::{Edge, Expr, Tree};
+use crate::{Symbol, SymbolicResult};
 
 use crate::base::{
-  alg::{AOp, Algebra, Assoc, BOp, UOp},
+  alg::{AOp, Algebra, Assoc, BOp},
   fun::{EOp, Function},
 };
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Copy)]
+/// A list of calculus operators.
+#[derive(Debug, Clone, Hash, PartialEq, PartialOrd, Eq, Ord, Copy)]
 pub enum CalOp {
   Der,
   Int,
@@ -16,54 +18,53 @@ pub enum CalOp {
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Calculus {
   pub map: CalOp,
-  pub arg: Box<Expr>,
-  pub var: Vec<Expr>,
+  pub arg: Edge,
+  pub var: Vec<Symbol>,
 }
 
 impl Calculus {
-  pub fn trivial(self) -> SymbolicResult<Expr> {
-    let op = match self.map {
+  /// Apply calculus simplifications.
+  pub fn cal_trivial(&self) -> SymbolicResult<Tree> {
+    let cal_op = match self.map {
       // [Rule-based differentiation](https://en.wikipedia.org/wiki/Differentiation_rules)
       // * product
       // * exponential
       // * chain
       // * flatten higher order derivatives
-      CalOp::Der => Self::differentiate,
+      CalOp::Der => Calculus::differentiate,
       // [Limited Risch integration](https://en.wikipedia.org/wiki/Risch_algorithm)
       // not implemented
-      CalOp::Int => return Ok(Expr::Cal(self)),
+      CalOp::Int => Calculus::integrate,
     };
 
     self
       .var
-      .into_iter()
+      .iter()
       // compose
-      .try_fold(*self.arg, |acc, var| {
-        var.is_symbol().map_or(Err(Form {}), |var| {
-          op(
-            acc, //.
-            &var,
-          )
-        })
+      .try_fold(Tree::from(&self.arg), |acc, var| {
+        cal_op(
+          &acc, //.
+          var,
+        )
       })
   }
 
-  fn differentiate(expr: Expr, part: &Symbol) -> SymbolicResult<Expr> {
+  pub(crate) fn differentiate<T: Expr>(expr: &T, part: &Symbol) -> SymbolicResult<Tree> {
     match expr.trivial()? {
       // ```∂x/∂x = 1```
-      Expr::Sym(sym) if *sym == *part => Ok(Expr::ONE),
+      Tree::Sym(sym) if &sym == part => Ok(Tree::ONE),
       // ```∂y/∂x = 0```
-      Expr::Sym(_) | Expr::Cte(_) | Expr::Num(_) => {
-        Ok(Expr::ZERO) //.
+      Tree::Sym(_) | Tree::Cte(_) | Tree::Num(_) => {
+        Ok(Tree::ZERO) //.
       }
 
-      Expr::Alg(alg) => {
+      Tree::Alg(alg) => {
         match alg {
           Algebra::UExpr {
             //.
-            map: UOp::Id,
+            map: _,
             arg,
-          } => Self::differentiate(*arg, part),
+          } => Self::differentiate(&arg, part),
 
           // exponent rule
           // ```∂(f^g)/∂x = f^g*(∂g/∂x*log(f) + ∂f/∂x*g/f)```
@@ -72,9 +73,9 @@ impl Calculus {
             map: BOp::Pow,
             arg: (lhs, rhs),
           } => {
-            let dl = Self::differentiate(*lhs.clone(), part)?;
-            let dr = Self::differentiate(*rhs.clone(), part)?;
-            (lhs.clone().pow(*rhs.clone()) * (dr * lhs.clone().log() + dl * *rhs / *lhs)).trivial()
+            let dl = Self::differentiate(&lhs, part)?;
+            let dr = Self::differentiate(&rhs, part)?;
+            lhs.clone().pow(rhs.clone()).mul(dr.mul(lhs.clone().log()).add(dl.mul(rhs).div(lhs))).trivial()
           }
 
           // sum rule
@@ -84,8 +85,8 @@ impl Calculus {
             map: AOp::Add,
             arg,
           }) => {
-            let sdxi: Result<Vec<_>, _> = arg.into_iter().map(|sub| Self::differentiate(sub, part)).collect();
-            Expr::assoc(AOp::Add, sdxi?).trivial()
+            let sdxi: Result<Vec<_>, _> = arg.into_iter().map(|sub| Ok(Self::differentiate(&sub, part)?.edge())).collect();
+            Tree::assoc(AOp::Add, sdxi?).trivial()
           }
 
           // product rule
@@ -95,26 +96,27 @@ impl Calculus {
             map: AOp::Mul,
             arg,
           }) => {
-            let pdxi: Result<Vec<_>, _> = arg
-              .iter()
-              .enumerate()
-              .map(|(i, sub)| {
+            Tree::assoc(
+              AOp::Add,
+              arg.iter().enumerate().try_fold(Vec::with_capacity(arg.len()), |mut acc, (i, sub)| {
                 let mut prod = arg.clone();
-                prod[i] = Self::differentiate(sub.clone(), part)?;
-                Ok(Expr::assoc(AOp::Mul, prod).trivial()?)
-              })
-              .collect();
-
-            Expr::assoc(
-              AOp::Add, //.
-              pdxi?,
+                prod[i] = Self::differentiate(
+                  sub, //.
+                  part,
+                )?
+                .edge();
+                acc.push(
+                  Tree::assoc(AOp::Mul, prod).edge(), //.
+                );
+                Ok(acc)
+              })?,
             )
             .trivial()
           }
         }
       }
 
-      Expr::Fun(Function::ElemExpr {
+      Tree::Fun(Function::ElemExpr {
         //.
         map,
         arg,
@@ -125,62 +127,58 @@ impl Calculus {
           // ```∂(cos(f))/∂x = -sin(f)```
           // ```∂(tan(f))/∂x = 1/cos(f)^2```
           EOp::Sin => arg.cos(),
-          EOp::Cos => -arg.sin(),
-          EOp::Tan => arg.cos().pow(Expr::from(-2)),
+          EOp::Cos => arg.sin().neg(),
+          EOp::Tan => arg.cos().pow(Tree::from(-2)),
 
           // ```∂(arcsin(f))/∂x = 1/sqrt(1 - f^2)```
           // ```∂(arccos(f))/∂x = -1/sqrt(1 - f^2)```
           // ```∂(arctan(f))/∂x = 1/(1 + f^2)```
-          EOp::ArcSin => Expr::ONE / Expr::sqrt(Expr::ONE - arg.pow(Expr::from(2))),
-          EOp::ArcCos => Expr::NEG_ONE / Expr::sqrt(Expr::ONE - arg.pow(Expr::from(2))),
-          EOp::ArcTan => Expr::ONE / (Expr::ONE + arg.pow(Expr::from(2))),
+          EOp::ArcSin => Tree::ONE.div(Tree::ONE.sub(arg.pow(Tree::from(2)))).sqrt(),
+          EOp::ArcCos => Tree::NEG_ONE.div(Tree::ONE.sub(arg.pow(Tree::from(2)))).sqrt(),
+          EOp::ArcTan => Tree::ONE.div(Tree::ONE.add(arg.pow(Tree::from(2)))),
 
           // ```∂(sinh(f))/∂x = cosh(f)```
           // ```∂(cosh(f))/∂x = sinh(f)```
           // ```∂(tanh(f))/∂x = 1/cosh^2(f)```
           EOp::Sinh => arg.cosh(),
           EOp::Cosh => arg.sinh(),
-          EOp::Tanh => arg.cosh().pow(Expr::from(-2)),
+          EOp::Tanh => arg.cosh().pow(Tree::from(-2)),
 
           // ```∂(arsinh(f))/∂x = 1/sqrt(1 + f^2)```
           // ```∂(arcosh(f))/∂x = 1/(sqrt(f - 1)*sqrt(f + 1))```
           // ```∂(artanh(f))/∂x = 1/(1 - f^2)```
-          EOp::ArSinh => Expr::ONE / Expr::sqrt(Expr::ONE + arg.pow(Expr::from(2))),
-          EOp::ArCosh => Expr::ONE / (Expr::sqrt(*arg.clone() - Expr::ONE) * Expr::sqrt(*arg + Expr::ONE)),
-          EOp::ArTanh => Expr::ONE / (Expr::ONE - arg.pow(Expr::from(2))),
+          EOp::ArSinh => Tree::ONE.div(Tree::ONE.add(arg.pow(Tree::from(2)))).sqrt(),
+          EOp::ArCosh => Tree::ONE.div(arg.clone().sub(Tree::ONE).sqrt().mul(arg.add(Tree::ONE).sqrt())),
+          EOp::ArTanh => Tree::ONE.div(Tree::ONE.sub(arg.pow(Tree::from(2)))),
 
           // ```∂(exp(f))/∂x = exp(f)```
           // ```∂(log(f))/∂x = 1/f```
           EOp::Exp => arg.exp(),
-          EOp::Log => Expr::ONE / *arg,
+          EOp::Log => Tree::ONE.div(arg),
         };
 
-        comp.chain_rule(diff, part)?.trivial()
+        Tree::chain_rule(comp, diff, part)?.trivial()
       }
 
-      Expr::Cal(Calculus {
+      Tree::Cal(Calculus {
         //.
         map: CalOp::Der,
         arg,
         mut var,
       }) => {
-        var.push(Expr::Sym(Symbol::new(&part.name, part.dom)));
-        Ok(Expr::Cal(Calculus {
-          //.
-          map: CalOp::Der,
-          arg,
-          var,
-        }))
+        var.push(part.clone());
+        Ok(arg.derivative(var))
       }
 
       expr => {
-        Ok(expr.derivative([Expr::Sym(Symbol::new(&part.name, part.dom))].to_vec()))
-        //.
+        Ok(expr.derivative(
+          [part.clone()].to_vec(), //.
+        ))
       }
     }
   }
 
-  fn _integrate(_expr: Expr, _part: &Symbol) -> SymbolicResult<Expr> {
+  fn integrate<T: Expr>(_expr: &T, _part: &Symbol) -> SymbolicResult<Tree> {
     todo!() //.
   }
 }
@@ -189,15 +187,8 @@ impl fmt::Display for Calculus {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     let mut iter = self.var.iter();
     if let Some(v) = iter.next() {
-      let var = iter.fold(format!("{}", v), |acc, v| acc + &format!(", {}", v));
-      write!(
-        //.
-        f,
-        "{}({}, {})",
-        self.map,
-        self.arg,
-        var
-      )?;
+      let var = iter.fold(format!("{v}"), |acc, v| acc + &format!(", {v}"));
+      write!(f, "{}({}, {var})", self.map, self.arg)?;
     }
 
     Ok(())
@@ -207,41 +198,33 @@ impl fmt::Display for Calculus {
 impl fmt::Display for CalOp {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match self {
+      // Differential operator form
       // ```D(f, x_1, x_2, ..., x_n)```
-      CalOp::Der => write!(
-        //.
-        f,
-        "D"
-      ),
+      CalOp::Der => {
+        write!(f, "D")
+      }
+      // Integral operator form
       // ```L(f, x_1, x_2, ..., x_n)```
-      CalOp::Int => write!(
-        //.
-        f,
-        "L"
-      ),
+      CalOp::Int => {
+        write!(f, "L")
+      }
     }
   }
 }
 
-impl Expr {
+impl Tree {
   /// ```∂(f(g))/∂x = (∂f/∂x)(g)*∂g/∂x```
-  fn chain_rule(self, derivative: Expr, part: &Symbol) -> SymbolicResult<Expr> { Ok(Calculus::differentiate(self, part)? * derivative) }
+  pub(crate) fn chain_rule<T: Expr>(arg: T, der: Tree, part: &Symbol) -> SymbolicResult<Tree> {
+    Ok(Calculus::differentiate(&arg, part)?.mul(der))
+  }
 
-  /// ```D^x(f)```,
-  /// ```∂f/(∂x_1 ∂x_2 ... ∂x_n)```
-  pub fn derivative(self, var: Vec<Expr>) -> Expr { Self::calculus_order(CalOp::Der, Box::new(self), var) }
-
-  /// ```L^x(f)```,
-  /// ```∫ ∫ ... ∫ f dx_1 dx_2 ... dx_n```
-  pub fn integral(self, var: Vec<Expr>) -> Expr { Self::calculus_order(CalOp::Int, Box::new(self), var) }
-
-  fn calculus_order(
+  pub(crate) fn calculus_order(
     //.
     map: CalOp,
-    arg: Box<Expr>,
-    var: Vec<Expr>,
-  ) -> Expr {
-    Self::Cal(Calculus {
+    arg: Edge,
+    var: Vec<Symbol>,
+  ) -> Tree {
+    Tree::Cal(Calculus {
       //.
       map,
       arg,

@@ -25,34 +25,28 @@ pub trait Domain
   }
 }
 
-pub trait Ring
-  : Domain
-  // associativity
-  + PartialEq
-{
-}
-
-pub trait Field
-  : Ring
-  // commutativity
-  + PartialOrd
-{
-}
-
 #[derive(Debug, Clone, Hash, PartialEq, PartialOrd, Eq, Ord, Copy)]
-pub enum Set {
-  /// Abstract
+pub enum Category {
+  Semiring,
+  Ring,
+  Field,
+}
+
+/// An abstract structure annotation.
+#[derive(Debug, Clone, Hash, PartialEq, PartialOrd, Eq, Ord, Copy)]
+pub enum Structure {
+  /// Abstract.
   AS,
-  /// Natural
+  /// Natural.
   N,
-  /// Integer
+  /// Integer.
   Z,
-  /// Rational
+  /// Rational.
   Q,
-  /// Real
+  /// Real.
   R,
-  /// Complex
+  /// Complex.
   C,
-  /// Symbolic
+  /// Custom.
   SR,
 }

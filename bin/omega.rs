@@ -1,5 +1,5 @@
 /*
- Cycle v0.3.0
+ Cycle v0.4.0
  [Omega]
  Copyright (c) 2020-present, Hugo (hrkz) Frezat
 */
@@ -24,7 +24,7 @@ fn main() -> io::Result<()> {
   if let Some(filename) = env::args().nth(1) {
     env.file(filename)
   } else {
-    println!("Cycle 0.3.0 :: omega");
+    println!("Cycle 0.4.0 :: omega");
     env.repl()
   }
 }

@@ -4,7 +4,7 @@ title: "Cycle: modern and safe symbolic mathematics"
 authors:
 - family-names: "Frezat"
   given-names: "Hugo"
-version: 0.3.0
+version: 0.4.0
 date-released: 2021-10-09
 licence: MIT
 repository-code: "https://github.com/hrkz/cycle"

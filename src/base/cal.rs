@@ -24,7 +24,8 @@ pub struct Calculus {
 
 impl Calculus {
   /// Apply calculus simplifications.
-  pub fn cal_trivial(&self) -> SymbolicResult<Tree> {
+  #[inline]
+  pub fn cal_trivial(self) -> SymbolicResult<Tree> {
     let cal_op = match self.map {
       // [Rule-based differentiation](https://en.wikipedia.org/wiki/Differentiation_rules)
       // * product
@@ -41,15 +42,16 @@ impl Calculus {
       .var
       .iter()
       // compose
-      .try_fold(Tree::from(&self.arg), |acc, var| {
+      .try_fold(Tree::from(self.arg), |acc, var| {
         cal_op(
-          &acc, //.
+          acc, //.
           var,
         )
       })
   }
 
-  pub(crate) fn differentiate<T: Expr>(expr: &T, part: &Symbol) -> SymbolicResult<Tree> {
+  #[inline]
+  pub(crate) fn differentiate<T: Expr>(expr: T, part: &Symbol) -> SymbolicResult<Tree> {
     match expr.trivial()? {
       // ```∂x/∂x = 1```
       Tree::Sym(sym) if &sym == part => Ok(Tree::ONE),
@@ -64,7 +66,7 @@ impl Calculus {
             //.
             map: _,
             arg,
-          } => Self::differentiate(&arg, part),
+          } => Self::differentiate(arg, part),
 
           // exponent rule
           // ```∂(f^g)/∂x = f^g*(∂g/∂x*log(f) + ∂f/∂x*g/f)```
@@ -73,8 +75,8 @@ impl Calculus {
             map: BOp::Pow,
             arg: (lhs, rhs),
           } => {
-            let dl = Self::differentiate(&lhs, part)?;
-            let dr = Self::differentiate(&rhs, part)?;
+            let dl = Self::differentiate(lhs.clone(), part)?;
+            let dr = Self::differentiate(rhs.clone(), part)?;
             lhs.clone().pow(rhs.clone()).mul(dr.mul(lhs.clone().log()).add(dl.mul(rhs).div(lhs))).trivial()
           }
 
@@ -85,7 +87,7 @@ impl Calculus {
             map: AOp::Add,
             arg,
           }) => {
-            let sdxi: Result<Vec<_>, _> = arg.into_iter().map(|sub| Ok(Self::differentiate(&sub, part)?.edge())).collect();
+            let sdxi: Result<Vec<_>, _> = arg.into_iter().map(|sub| Ok(Self::differentiate(sub, part)?.edge())).collect();
             Tree::assoc(AOp::Add, sdxi?).trivial()
           }
 
@@ -96,18 +98,17 @@ impl Calculus {
             map: AOp::Mul,
             arg,
           }) => {
+            let pdxi = arg.iter().map(|sub| {
+              let dxi = Self::differentiate(sub.clone(), part)?;
+              Ok(dxi.edge())
+            });
+
             Tree::assoc(
               AOp::Add,
-              arg.iter().enumerate().try_fold(Vec::with_capacity(arg.len()), |mut acc, (i, sub)| {
+              pdxi.enumerate().try_fold(Vec::with_capacity(arg.len()), |mut acc, (i, dxfi)| {
                 let mut prod = arg.clone();
-                prod[i] = Self::differentiate(
-                  sub, //.
-                  part,
-                )?
-                .edge();
-                acc.push(
-                  Tree::assoc(AOp::Mul, prod).edge(), //.
-                );
+                prod[i] = dxfi?;
+                acc.push(Tree::assoc(AOp::Mul, prod).edge());
                 Ok(acc)
               })?,
             )
@@ -178,7 +179,8 @@ impl Calculus {
     }
   }
 
-  fn integrate<T: Expr>(_expr: &T, _part: &Symbol) -> SymbolicResult<Tree> {
+  #[inline]
+  pub(crate) fn integrate<T: Expr>(_expr: T, _part: &Symbol) -> SymbolicResult<Tree> {
     todo!() //.
   }
 }
@@ -215,7 +217,7 @@ impl fmt::Display for CalOp {
 impl Tree {
   /// ```∂(f(g))/∂x = (∂f/∂x)(g)*∂g/∂x```
   pub(crate) fn chain_rule<T: Expr>(arg: T, der: Tree, part: &Symbol) -> SymbolicResult<Tree> {
-    Ok(Calculus::differentiate(&arg, part)?.mul(der))
+    Ok(Calculus::differentiate(arg, part)?.mul(der))
   }
 
   pub(crate) fn calculus_order(

@@ -106,10 +106,9 @@ pub trait Expr: Sized {
   /// Transform to a recursive [`Edge`] expression.
   fn edge(self) -> Edge;
   /// Apply trivial simplifications.
-  fn trivial(&self) -> SymbolicResult<Tree>;
-  /// Rewrite from rules.
-  fn rewrite(&self) -> SymbolicResult<Tree>;
+  fn trivial(self) -> SymbolicResult<Tree>;
 
+  /// Visit the nodes of the expression tree.
   fn visit<B, F>(
     //.
     &self,
@@ -118,6 +117,7 @@ pub trait Expr: Sized {
   ) -> B
   where
     F: Fn(B, &Tree) -> B;
+  /// Visit the mutable nodes of the expression tree.
   fn visit_mut<F>(
     //.
     &mut self,
@@ -293,7 +293,7 @@ pub trait Expr: Sized {
     Tree::calculus_order(cal::CalOp::Int, self.edge(), var)
   }
 
-  /// ```∑_{i=l}^u```
+  /// ```∑{i=l->u} f```
   fn sum<L, U>(
     //.
     self,
@@ -308,7 +308,7 @@ pub trait Expr: Sized {
     Tree::sequence_order(sq::SqOp::Sum, idx, lo.edge(), up.edge(), self.edge())
   }
 
-  /// ```∏_{i=l}^u```
+  /// ```∏{i=l->u} f```
   fn product<L, U>(
     //.
     self,
@@ -344,21 +344,22 @@ impl<T> Expr for T
 where
   T: Borrow<Tree> + BorrowMut<Tree>,
   T: Into<Edge>,
+  T: Into<Tree>,
 {
   fn edge(self) -> Edge {
     self.into()
   }
 
-  fn trivial(&self) -> SymbolicResult<Tree> {
-    let tree = self.borrow();
+  fn trivial(self) -> SymbolicResult<Tree> {
+    let tree = self.into();
     match tree {
       Tree::Form => Err(Form {}),
       Tree::Sym(_) | Tree::Cte(_) => Ok(
-        tree.clone(), //.
+        tree, //.
       ),
       Tree::Num(
         n, //.
-      ) => Ok(Tree::Num(n.clone().trivial()?)),
+      ) => Ok(Tree::Num(n.trivial()?)),
 
       Tree::Alg(
         a, //.
@@ -373,10 +374,6 @@ where
         s, //.
       ) => s.sq_trivial(),
     }
-  }
-
-  fn rewrite(&self) -> SymbolicResult<Tree> {
-    todo!()
   }
 
   fn visit<B, F>(
@@ -580,22 +577,28 @@ impl Tree {
   }
 
   /// Substitute in-place expression `expr` by `replace`.
-  pub fn subs(&mut self, expr: &Tree, replace: &Tree) {
+  pub fn subs(&mut self, expr: &Tree, replace: &Tree) -> &mut Self {
     if expr.eq(self) {
-      return *self = replace.clone();
+      *self = replace.clone();
     } else if self.free(expr) {
-      return *self = self.clone();
-    }
-
-    match self {
-      Tree::Form | Tree::Cte(_) | Tree::Sym(_) | Tree::Num(_) => *self = replace.clone(),
-      Tree::Alg(_) //.rec
-    | Tree::Fun(_)
-    | Tree::Cal(_)
-    | Tree::Sq(_) => {
-        self.iter_mut().for_each(|e| e.subs(expr, replace))
+      *self = self.clone();
+    } else {
+      match self {
+        Tree::Form | Tree::Cte(_) | Tree::Sym(_) | Tree::Num(_) => *self = replace.clone(),
+        Tree::Alg(_) //.rec
+      | Tree::Fun(_)
+      | Tree::Cal(_)
+      | Tree::Sq(_) => {
+          self.iter_mut().for_each(|e| {
+            e.subs(
+              expr, //.
+              replace,
+            );
+          })
+        }
       }
     }
+    self
   }
 
   /// Check if the current expression is a litteral.
@@ -630,7 +633,7 @@ impl Tree {
   }
 
   // Helpers
-  fn helper_len(&self) -> u64 {
+  pub fn helper_len(&self) -> u64 {
     match self {
       Tree::Form => 0,
       Tree::Sym(_) | Tree::Cte(_) => 1,
@@ -644,7 +647,7 @@ impl Tree {
     }
   }
 
-  fn helper_prec(&self) -> u64 {
+  pub fn helper_prec(&self) -> u64 {
     match self {
       Tree::Sym(_) | Tree::Cte(_) => 0,
       Tree::Num(n) => n.helper_len(),
@@ -932,7 +935,15 @@ impl From<Rational> for Tree {
   }
 }
 
+impl From<Edge> for Tree {
+  #[inline]
+  fn from(edge: Edge) -> Tree {
+    (*edge).clone()
+  }
+}
+
 impl From<&Edge> for Tree {
+  #[inline]
   fn from(edge: &Edge) -> Tree {
     (**edge).clone()
   }

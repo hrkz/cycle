@@ -34,7 +34,7 @@ pub mod lang;
 #[cfg(feature = "cycle_plot")]
 pub mod plot;
 
-pub use crate::base::algebra::{Constant, Form, Integer, Natural, Number, Rational, Structure, SymbolicResult};
+pub use crate::base::algebra::{Constant, Form, Integer, Natural, Number, Rational, Structure, SymbolicResult, Theory};
 pub use crate::base::{Edge, Expr, Node, Symbol, Tree};
 
 // Types reexport.

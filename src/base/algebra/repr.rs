@@ -25,28 +25,24 @@ pub trait Domain
   }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, PartialOrd, Eq, Ord, Copy)]
-pub enum Category {
-  Semiring,
-  Ring,
-  Field,
-}
+/// A trait to represent algebraic structures (underlying set and corresponding allowed operations).
+pub trait Theory {}
 
 /// An abstract structure annotation.
 #[derive(Debug, Clone, Hash, PartialEq, PartialOrd, Eq, Ord, Copy)]
 pub enum Structure {
-  /// Abstract.
+  /// Abstract
   AS,
-  /// Natural.
+  /// Natural
   N,
-  /// Integer.
+  /// Integer
   Z,
-  /// Rational.
+  /// Rational
   Q,
-  /// Real.
+  /// Real
   R,
-  /// Complex.
+  /// Complex
   C,
-  /// Custom.
+  /// Custom
   SR,
 }

@@ -80,16 +80,17 @@ pub enum Function {
 
 impl Function {
   /// Apply functional simplifications.
-  pub fn fun_trivial(&self) -> SymbolicResult<Tree> {
+  #[inline]
+  pub fn fun_trivial(self) -> SymbolicResult<Tree> {
     match self {
       Function::MapExpr {
         //.
         map,
         arg,
       } => {
-        let arg: Result<Vec<Tree>, _> = arg.iter().map(|sub| sub.trivial()).collect();
+        let arg: Result<Vec<_>, _> = arg.into_iter().map(|sub| sub.trivial()).collect();
         Ok(Tree::map(
-          map.clone(), //.
+          map, //.
           arg?,
         ))
       }
@@ -105,7 +106,7 @@ impl Function {
           // [Trigonometric identities](https://en.wikipedia.org/wiki/List_of_trigonometric_identities)
 
           // ```arctan(z∞) = sgn(z)*π/2```
-          (EOp::ArcTan, Tree::Cte(Constant::Infinity(z))) => Tree::from(Constant::dir_cmp(z)).mul(Tree::Cte(Constant::Pi)).mul(Tree::HALF).trivial(),
+          (EOp::ArcTan, Tree::Cte(Constant::Infinity(z))) => Tree::from(Constant::dir_cmp(z)).mul(Tree::Cte(Constant::pi)).mul(Tree::HALF).trivial(),
 
           // ```sin(0) = arcsin(0) = 0```
           (EOp::Sin | EOp::ArcSin, Tree::ZERO) => Ok(Tree::ZERO),
@@ -115,32 +116,32 @@ impl Function {
           (EOp::Tan | EOp::ArcTan, Tree::ZERO) => Ok(Tree::ZERO),
 
           // ```sin(π) = 0```
-          (EOp::Sin, Tree::Cte(Constant::Pi)) => Ok(Tree::ZERO),
+          (EOp::Sin, Tree::Cte(Constant::pi)) => Ok(Tree::ZERO),
           // ```cos(π) = -1```
-          (EOp::Cos, Tree::Cte(Constant::Pi)) => Ok(Tree::NEG_ONE),
+          (EOp::Cos, Tree::Cte(Constant::pi)) => Ok(Tree::NEG_ONE),
           // ```tan(π) = 0```
-          (EOp::Tan, Tree::Cte(Constant::Pi)) => Ok(Tree::ZERO),
+          (EOp::Tan, Tree::Cte(Constant::pi)) => Ok(Tree::ZERO),
 
           // ```arccos(0) = π/2```
-          (EOp::ArcCos, Tree::ZERO) => Tree::Cte(Constant::Pi).mul(Tree::HALF).trivial(),
+          (EOp::ArcCos, Tree::ZERO) => Tree::Cte(Constant::pi).mul(Tree::HALF).trivial(),
           // ```arcsin(1) = π/2```
-          (EOp::ArcSin, Tree::ONE) => Tree::Cte(Constant::Pi).mul(Tree::HALF).trivial(),
+          (EOp::ArcSin, Tree::ONE) => Tree::Cte(Constant::pi).mul(Tree::HALF).trivial(),
           // ```arccos(1) = 0```
           (EOp::ArcCos, Tree::ONE) => Ok(Tree::ZERO),
           // ```arctan(1) = π/4```
-          (EOp::ArcTan, Tree::ONE) => Tree::Cte(Constant::Pi).mul(Tree::QUARTER).trivial(),
+          (EOp::ArcTan, Tree::ONE) => Tree::Cte(Constant::pi).mul(Tree::QUARTER).trivial(),
 
-          // ```sin(I) = I*sinh(1)```
-          // ```cos(I) = cosh(1)```
-          // ```tan(I) = I*tanh(1)```
-          (EOp::Sin, Tree::Cte(Constant::I)) => Ok(Tree::Cte(Constant::I).mul(Tree::ONE.sinh())),
-          (EOp::Cos, Tree::Cte(Constant::I)) => Ok(Tree::ONE.cosh()),
-          (EOp::Tan, Tree::Cte(Constant::I)) => Ok(Tree::Cte(Constant::I).mul(Tree::ONE.tanh())),
+          // ```sin(i) = i*sinh(1)```
+          // ```cos(i) = cosh(1)```
+          // ```tan(i) = i*tanh(1)```
+          (EOp::Sin, Tree::Cte(Constant::i)) => Ok(Tree::Cte(Constant::i).mul(Tree::ONE.sinh())),
+          (EOp::Cos, Tree::Cte(Constant::i)) => Ok(Tree::ONE.cosh()),
+          (EOp::Tan, Tree::Cte(Constant::i)) => Ok(Tree::Cte(Constant::i).mul(Tree::ONE.tanh())),
 
           // ```sin(arcsin(x)) = x```
           // ```sin(arccos(x)) = sqrt(1 - x^2)```
           // ```sin(arctan(x)) = x/sqrt(1 + x^2)```
-          (EOp::Sin, Tree::Fun(Function::ElemExpr { map: EOp::ArcSin, arg })) => Ok(Tree::from(&arg)),
+          (EOp::Sin, Tree::Fun(Function::ElemExpr { map: EOp::ArcSin, arg })) => Ok(Tree::from(arg)),
           (EOp::Sin, Tree::Fun(Function::ElemExpr { map: EOp::ArcCos, arg })) => Tree::ONE.sub(arg.pow(Tree::from(2))).sqrt().trivial(),
           (EOp::Sin, Tree::Fun(Function::ElemExpr { map: EOp::ArcTan, arg })) => arg.clone().div(Tree::ONE.add(arg.pow(Tree::from(2))).sqrt()).trivial(),
 
@@ -148,7 +149,7 @@ impl Function {
           // ```cos(arccos(x)) = x```
           // ```cos(arctan(x)) = 1/sqrt(1 + x^2)```
           (EOp::Cos, Tree::Fun(Function::ElemExpr { map: EOp::ArcSin, arg })) => Tree::ONE.sub(arg.pow(Tree::from(2))).sqrt().trivial(),
-          (EOp::Cos, Tree::Fun(Function::ElemExpr { map: EOp::ArcCos, arg })) => Ok(Tree::from(&arg)),
+          (EOp::Cos, Tree::Fun(Function::ElemExpr { map: EOp::ArcCos, arg })) => Ok(Tree::from(arg)),
           (EOp::Cos, Tree::Fun(Function::ElemExpr { map: EOp::ArcTan, arg })) => Tree::ONE.div(Tree::ONE.add(arg.pow(Tree::from(2))).sqrt()).trivial(),
 
           // ```tan(arcsin(x)) = x/(sqrt(1 - x^2))```
@@ -156,7 +157,7 @@ impl Function {
           // ```tan(arctan(x)) = x```
           (EOp::Tan, Tree::Fun(Function::ElemExpr { map: EOp::ArcSin, arg })) => arg.clone().div(Tree::ONE.sub(arg.pow(Tree::from(2))).sqrt()).trivial(),
           (EOp::Tan, Tree::Fun(Function::ElemExpr { map: EOp::ArcCos, arg })) => Tree::ONE.sub(arg.clone().pow(Tree::from(2))).sqrt().div(arg).trivial(),
-          (EOp::Tan, Tree::Fun(Function::ElemExpr { map: EOp::ArcTan, arg })) => Ok(Tree::from(&arg)),
+          (EOp::Tan, Tree::Fun(Function::ElemExpr { map: EOp::ArcTan, arg })) => Ok(Tree::from(arg)),
 
           // [Hyperbolic identities](https://en.wikipedia.org/wiki/Hyperbolic_functions#Useful_relations)
 
@@ -165,9 +166,9 @@ impl Function {
           (EOp::Sinh | EOp::ArSinh, Tree::Cte(Constant::Infinity(z))) => Ok(Tree::Cte(Constant::Infinity(z))),
           (EOp::Cosh | EOp::ArCosh, Tree::Cte(Constant::Infinity(_))) => Ok(Tree::Cte(Constant::Infinity(Ordering::Greater))),
           // ```tanh(z∞) = sgn(z)```
-          // ```artanh(z∞) = -sgn(z)*π*I/2```
+          // ```artanh(z∞) = -sgn(z)*π*i/2```
           (EOp::Tanh, Tree::Cte(Constant::Infinity(z))) => Ok(Tree::from(Constant::dir_cmp(z))),
-          (EOp::ArTanh, Tree::Cte(Constant::Infinity(z))) => Tree::from(-Constant::dir_cmp(z)).mul(Tree::Cte(Constant::Pi)).mul(Tree::Cte(Constant::I)).mul(Tree::HALF).trivial(),
+          (EOp::ArTanh, Tree::Cte(Constant::Infinity(z))) => Tree::from(-Constant::dir_cmp(z)).mul(Tree::Cte(Constant::pi)).mul(Tree::Cte(Constant::i)).mul(Tree::HALF).trivial(),
 
           // ```sinh(0) = arsinh(0) = 0```
           (EOp::Sinh | EOp::ArSinh, Tree::ZERO) => Ok(Tree::ZERO),
@@ -176,8 +177,8 @@ impl Function {
           // ```tanh(0) = artanh(0) = 0```
           (EOp::Tanh | EOp::ArTanh, Tree::ZERO) => Ok(Tree::ZERO),
 
-          // ```arcosh(0) = π*I/2```
-          (EOp::ArCosh, Tree::ZERO) => Tree::Cte(Constant::Pi).mul(Tree::Cte(Constant::I)).mul(Tree::HALF).trivial(),
+          // ```arcosh(0) = π*i/2```
+          (EOp::ArCosh, Tree::ZERO) => Tree::Cte(Constant::pi).mul(Tree::Cte(Constant::i)).mul(Tree::HALF).trivial(),
           // ```arcosh(1) = 0```
           (EOp::ArCosh, Tree::ONE) => Ok(Tree::ZERO),
           // ```artanh(1) = ∞```
@@ -186,7 +187,7 @@ impl Function {
           // ```sinh(arsinh(x)) = x```
           // ```sinh(arcosh(x)) = sqrt(x - 1)*sqrt(x + 1)```
           // ```sinh(artanh(x)) = x/sqrt(1 - x^2)```
-          (EOp::Sinh, Tree::Fun(Function::ElemExpr { map: EOp::ArSinh, arg })) => Ok(Tree::from(&arg)),
+          (EOp::Sinh, Tree::Fun(Function::ElemExpr { map: EOp::ArSinh, arg })) => Ok(Tree::from(arg)),
           (EOp::Sinh, Tree::Fun(Function::ElemExpr { map: EOp::ArCosh, arg })) => arg.clone().sub(Tree::ONE).sqrt().mul(arg.add(Tree::ONE).sqrt()).trivial(),
           (EOp::Sinh, Tree::Fun(Function::ElemExpr { map: EOp::ArTanh, arg })) => arg.clone().div(Tree::ONE.sub(arg.pow(Tree::from(2)).sqrt())).trivial(),
 
@@ -194,7 +195,7 @@ impl Function {
           // ```cosh(arcosh(x)) = x```
           // ```cosh(artanh(x)) = 1/sqrt(1 - x^2)```
           (EOp::Cosh, Tree::Fun(Function::ElemExpr { map: EOp::ArSinh, arg })) => Tree::ONE.add(arg.pow(Tree::from(2))).sqrt().trivial(),
-          (EOp::Cosh, Tree::Fun(Function::ElemExpr { map: EOp::ArCosh, arg })) => Ok(Tree::from(&arg)),
+          (EOp::Cosh, Tree::Fun(Function::ElemExpr { map: EOp::ArCosh, arg })) => Ok(Tree::from(arg)),
           (EOp::Cosh, Tree::Fun(Function::ElemExpr { map: EOp::ArTanh, arg })) => Tree::ONE.div(Tree::ONE.sub(arg.pow(Tree::from(2))).sqrt()).trivial(),
 
           // ```tanh(arsinh(x)) = x/(sqrt(1 + x^2))```
@@ -202,7 +203,7 @@ impl Function {
           // ```tanh(artanh(x)) = x```
           (EOp::Tanh, Tree::Fun(Function::ElemExpr { map: EOp::ArSinh, arg })) => arg.clone().div(Tree::ONE.add(arg.pow(Tree::from(2))).sqrt()).trivial(),
           (EOp::Tanh, Tree::Fun(Function::ElemExpr { map: EOp::ArCosh, arg })) => arg.clone().sub(Tree::ONE).sqrt().mul(arg.clone().add(Tree::ONE).sqrt()).div(arg).trivial(),
-          (EOp::Tanh, Tree::Fun(Function::ElemExpr { map: EOp::ArTanh, arg })) => Ok(Tree::from(&arg)),
+          (EOp::Tanh, Tree::Fun(Function::ElemExpr { map: EOp::ArTanh, arg })) => Ok(Tree::from(arg)),
 
           // [Exponential identities](https://en.wikipedia.org/wiki/Exponential_function)
 
@@ -214,7 +215,7 @@ impl Function {
           (EOp::Exp, Tree::Cte(Constant::Infinity(Ordering::Greater))) => Ok(Tree::Cte(Constant::Infinity(Ordering::Greater))),
 
           // ```exp(log(x)) = x```
-          (EOp::Exp, Tree::Fun(Function::ElemExpr { map: EOp::Log, arg })) => Ok(Tree::from(&arg)),
+          (EOp::Exp, Tree::Fun(Function::ElemExpr { map: EOp::Log, arg })) => Ok(Tree::from(arg)),
 
           // ```exp(0) = 1```
           (EOp::Exp, Tree::ZERO) => Ok(Tree::ONE),
@@ -227,7 +228,7 @@ impl Function {
           (EOp::Log, Tree::Num(rhs)) if rhs.num().eq(&1) => Ok(Tree::log(Tree::from(rhs.den())).neg()),
 
           (map, arg) => Ok(Tree::elem(
-            *map, //.
+            map, //.
             arg.edge(),
           )),
         }
@@ -248,11 +249,11 @@ impl fmt::Display for Function {
         map,
         arg,
       } => {
-        write!(f, "{map:?}({arg})")
+        write!(f, "{}({arg})", format!("{map:?}").to_lowercase())
       }
 
       Function::SpecExpr(map) => match map {
-        Special::Gamma(arg) => write!(f, "Gamma({arg})"),
+        Special::Gamma(arg) => write!(f, "gamma({arg})"),
       },
 
       Function::MapExpr {

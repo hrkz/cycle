@@ -50,7 +50,8 @@ pub enum Algebra {
 
 impl Algebra {
   /// Apply algebraic simplifications.
-  pub fn alg_trivial(&self) -> SymbolicResult<Tree> {
+  #[inline]
+  pub fn alg_trivial(self) -> SymbolicResult<Tree> {
     match self {
       Algebra::AssocExpr(expr) => expr.trivial(),
 
@@ -107,16 +108,16 @@ impl Algebra {
             (Ordering::Equal, false) => Tree::Cte(Constant::Infinity(Ordering::Equal)),
           }),
 
-          // ```I^y, y ∈ ℤ```
-          // ```I^y =  1, y mod 4 = 0```
-          // ```I^y =  I, y mod 4 = 1```
-          // ```I^y = -1, y mod 4 = 2```
-          // ```I^y = -I, y mod 4 = 3```
-          (Tree::Cte(Constant::I), Tree::Num(Number::Z(rhs))) => Ok(match rhs.rem_euclid(4) {
+          // ```i^y, y ∈ ℤ```
+          // ```i^y =  1, y mod 4 = 0```
+          // ```i^y =  i, y mod 4 = 1```
+          // ```i^y = -1, y mod 4 = 2```
+          // ```i^y = -i, y mod 4 = 3```
+          (Tree::Cte(Constant::i), Tree::Num(Number::Z(rhs))) => Ok(match rhs.rem_euclid(4) {
             0 => Tree::ONE,
-            1 => Tree::Cte(Constant::I),
+            1 => Tree::Cte(Constant::i),
             2 => Tree::NEG_ONE,
-            _ => Tree::Cte(Constant::I).neg(),
+            _ => Tree::Cte(Constant::i).neg(),
           }),
 
           // ```0^y, y ∈ ℚ```
@@ -129,8 +130,8 @@ impl Algebra {
             Ordering::Equal => Err(Form {}),
           },
 
-          // ```sqrt(-1) = (-1)^(1/2) = I```
-          (Tree::NEG_ONE, Tree::Num(Number::Q(Rational { num: 1, den: 2 }))) => Ok(Tree::Cte(Constant::I)),
+          // ```sqrt(-1) = (-1)^(1/2) = i```
+          (Tree::NEG_ONE, Tree::Num(Number::Q(Rational { num: 1, den: 2 }))) => Ok(Tree::Cte(Constant::i)),
           // ```1^x = x^0 = 1```
           (Tree::ONE, _) | (_, Tree::ZERO) => Ok(Tree::ONE),
           // ```x^1 = x```
@@ -142,7 +143,7 @@ impl Algebra {
           (Tree::Num(Number::Z(lhs)), Tree::Num(rhs)) => Algebra::trivial_root(lhs, rhs),
 
           // ```(b^e)^y = b^(e*y), y ∈ ℤ```
-          (Tree::Alg(Algebra::BExpr { map: BOp::Pow, arg: (b, e) }), r) if rhs.dom().le(&Structure::Z) => b.pow(e.mul(r)).trivial(),
+          (Tree::Alg(Algebra::BExpr { map: BOp::Pow, arg: (b, e) }), rhs) if rhs.dom().le(&Structure::Z) => b.pow(e.mul(rhs)).trivial(),
 
           // ```(x_1*x_2*...*x_n)^y = x_1^y*x_2^y*...*x_n^y, y ∈ ℤ```
           (Tree::Alg(Algebra::AssocExpr(Assoc { map: AOp::Mul, arg })), Tree::Num(rhs)) if rhs.dom().le(&Structure::Z) => {
@@ -291,12 +292,13 @@ impl fmt::Display for Algebra {
 }
 
 impl Assoc {
-  fn trivial(&self) -> SymbolicResult<Tree> {
+  #[inline]
+  fn trivial(self) -> SymbolicResult<Tree> {
     let mut flat = Vec::new();
     // Apply associative property.
-    let Assoc { map, mut arg } = self.clone().flatten(&mut flat)?;
+    let Assoc { map, mut arg } = self.flatten(&mut flat)?;
     // Apply commutative property.
-    flat.sort_by(|lhs, rhs| self.map.cmp_poly(lhs.is_value().cmp(&rhs.is_value()), Ordering::Equal).then(rhs.cmp(lhs)));
+    flat.sort_by(|lhs, rhs| map.cmp_poly(lhs.is_value().cmp(&rhs.is_value()), Ordering::Equal).then(rhs.cmp(lhs)));
 
     while !flat.is_empty() {
       let lhs_arg = flat.pop();
@@ -343,14 +345,14 @@ impl Assoc {
           (AOp::Mul, Tree::ONE, rhs) => flat.push(rhs),
 
           (_, lhs, rhs) => {
-            let (lhs_base, lhs_coeff) = self.split(&lhs)?;
-            let (rhs_base, rhs_coeff) = self.split(&rhs)?;
+            let (lhs_base, lhs_coeff) = Self::split(map, &lhs)?;
+            let (rhs_base, rhs_coeff) = Self::split(map, &rhs)?;
 
             let factor = if lhs_base == rhs_base {
               // ```c*x + d*x = (c + d)*x, {c, d} ∈ ℚ``` or
               // ```x^c * x^d = x^(c + d)```
               let coeff = lhs_coeff.add(rhs_coeff).trivial()?;
-              self.merge(lhs_base, coeff)?
+              Self::merge(map, lhs_base, coeff)?
             } else {
               arg.push(lhs.edge());
               rhs
@@ -366,11 +368,15 @@ impl Assoc {
       }
     }
 
-    Assoc {
-      map, //.
-      arg,
-    }
-    .arity()
+    let tree = match arg.len() {
+      0 => map.id(),
+      1 => arg.remove(0).trivial()?,
+      _ => Tree::assoc(
+        map, //.
+        arg,
+      ),
+    };
+    Ok(tree)
   }
 
   fn flatten(mut self, flat: &mut Vec<Tree>) -> SymbolicResult<Assoc> {
@@ -384,7 +390,7 @@ impl Assoc {
         }))
           if self.map == smap =>
         {
-          sarg.iter().for_each(|sub| self.arg.push(sub.clone()))
+          sarg.into_iter().for_each(|sub| self.arg.push(sub))
         }
 
         expr => {
@@ -398,23 +404,11 @@ impl Assoc {
     Ok(self)
   }
 
-  fn arity(mut self) -> SymbolicResult<Tree> {
-    Ok(match self.arg.len() {
-      0 => self.map.id(),
-      1 => self.arg.remove(0).trivial()?,
-
-      _ => Tree::assoc(
-        self.map, //.
-        self.arg,
-      ),
-    })
-  }
-
   /// Split an associative operation.
   /// [`split`](x) = (b, c)
   /// [`split`](x) = [`split`]([`merge`](b, c)) = (b, c)
-  fn split(&self, expr: &Tree) -> SymbolicResult<(Tree, Tree)> {
-    match (self.map, &expr) {
+  fn split(map: AOp, expr: &Tree) -> SymbolicResult<(Tree, Tree)> {
+    match (map, &expr) {
       (
         AOp::Add,
         Tree::Alg(Algebra::AssocExpr(Assoc {
@@ -451,9 +445,9 @@ impl Assoc {
   /// Merge an associative base and coefficient.
   /// [`merge`](b, c) = x
   /// [`merge`](b, c) = [`merge`]([`split`](x)) = x
-  fn merge(&self, base: Tree, coeff: Tree) -> SymbolicResult<Tree> {
+  fn merge(map: AOp, base: Tree, coeff: Tree) -> SymbolicResult<Tree> {
     if coeff != Tree::ONE {
-      match self.map {
+      match map {
         // ```c*b```
         AOp::Add => coeff.mul(base),
         // ```b^c```

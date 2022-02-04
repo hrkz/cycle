@@ -13,11 +13,7 @@ impl Expr for Evaluate {
     Edge::from(self.trivial().unwrap_or(Tree::Form))
   }
 
-  fn rewrite(&self) -> SymbolicResult<Tree> {
-    Ok(self.clone().nontrivial())
-  }
-
-  fn trivial(&self) -> SymbolicResult<Tree> {
+  fn trivial(self) -> SymbolicResult<Tree> {
     // arg(mat -> sub)
     let mut arg = self.arg.trivial()?;
     arg.subs(
@@ -58,11 +54,7 @@ impl Expr for Expand {
     Edge::from(self.trivial().unwrap_or(Tree::Form))
   }
 
-  fn rewrite(&self) -> SymbolicResult<Tree> {
-    Ok(self.clone().nontrivial())
-  }
-
-  fn trivial(&self) -> SymbolicResult<Tree> {
+  fn trivial(self) -> SymbolicResult<Tree> {
     self.expand_all()
   }
 
@@ -89,7 +81,7 @@ impl Expr for Expand {
 }
 
 impl Expand {
-  fn expand_all(&self) -> SymbolicResult<Tree> {
+  fn expand_all(self) -> SymbolicResult<Tree> {
     self.arg.trivial()
   }
 }

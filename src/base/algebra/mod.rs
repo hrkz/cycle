@@ -20,7 +20,9 @@ pub type SymbolicResult<T> = Result<T, Form>;
 /// A countable number (excluding irrational and complex numbers).
 #[derive(Debug, Clone, Hash, PartialEq, PartialOrd, Eq, Ord)]
 pub enum Number {
+  /// The ring of integers.
   Z(Integer),
+  /// The field of rationals.
   Q(Rational),
 }
 
@@ -28,30 +30,24 @@ impl Number {
   /// Return the numerator.
   pub fn num(&self) -> Integer {
     match self {
-      // ```num(z) ∈ ℤ = num(z/1) ∈ ℚ = z,```
-      Number::Z(z) => {
-        z.num() //.
-      }
-
-      // ```num(n/d) ∈ ℚ = n,```
-      Number::Q(q) => {
-        q.num() //.
-      }
+      Number::Z(
+        z, // ```num(z) ∈ ℤ = num(z/1) ∈ ℚ = z,```
+      ) => *z,
+      Number::Q(
+        q, // ```num(n/d) ∈ ℚ = n,```
+      ) => q.num(),
     }
   }
 
   /// Return the denominator.
   pub fn den(&self) -> Integer {
     match self {
-      // ```den(z) ∈ ℤ = den(z/1) ∈ ℚ = 1,```
-      Number::Z(z) => {
-        z.den() //.
-      }
-
-      // ```den(n/d) ∈ ℚ = d,```
-      Number::Q(q) => {
-        q.den() //.
-      }
+      Number::Z(
+        _, // ```den(z) ∈ ℤ = den(z/1) ∈ ℚ = 1,```
+      ) => 1,
+      Number::Q(
+        q, // ```den(n/d) ∈ ℚ = d,```
+      ) => q.den(),
     }
   }
 
@@ -249,33 +245,35 @@ impl fmt::Display for Form {
 }
 
 /// A list of important mathematical constants.
+#[allow(nonstandard_style)]
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Copy)]
 pub enum Constant {
   /// \[_∞] Infinity.
   Infinity(Ordering),
 
   /// \[i] Imaginary unit.
-  I,
+  i,
   /// \[π] Archimede's constant.
-  Pi,
+  pi,
   /// \[e] Euler's number.
-  E,
+  e,
 }
 
 impl Constant {
+  /// Return the associated constant structure.
   pub fn dom(&self) -> Structure {
     match self {
       Constant::Infinity(_) => Structure::AS,
 
-      Constant::I => {
+      Constant::i => {
         // i ∈ ℂ
         Structure::C
       }
-      Constant::Pi => {
+      Constant::pi => {
         // π ∈ R∖Q
         Structure::R
       }
-      Constant::E => {
+      Constant::e => {
         // e ∈ R∖Q
         Structure::R
       }

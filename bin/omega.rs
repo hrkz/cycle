@@ -54,7 +54,14 @@ impl Interact for Environment {
       io::stdout().flush()?;
       io::stdin().read_line(&mut stmt)?;
 
-      self.interpret(1, &stmt)
+      if stmt.trim_end().eq("break") {
+        return Ok(());
+      }
+
+      self.interpret(
+        1, //.
+        &stmt,
+      )
     }
   }
 
@@ -67,20 +74,16 @@ impl Interact for Environment {
 
   fn interpret(&mut self, line: usize, stmt: &str) {
     match self.run(stmt.trim_end()) {
-      // variable assignment or function definition
+      // variable and function definition
       Ok(None) => (),
 
       Ok(Some(expr)) => {
         let expr = expr.trivial();
-        expr.map_or_else(|err| eprintln!("{}", err), |expr| println!("{}", expr))
+        expr.map_or_else(|err| eprintln!("{err}"), |expr| println!("{expr}"))
       }
 
       Err(err) => {
-        eprintln!(
-          "[error: {}] {}",
-          line, // lang error
-          err
-        )
+        eprintln!("[error: {line}] {err}")
       }
     }
   }
@@ -93,8 +96,8 @@ impl Package for Prelude {
     self
       .load_elementary(env)
       .and(self.load_calculus(env))
-      .and(self.load_manipulation(env))
       .and(self.load_sequence(env))
+      .and(self.load_manipulation(env))
       .expect(
         "failed to load basic packages", //.
       );
@@ -115,61 +118,61 @@ impl Prelude {
     // ```sin(x)```
     // ```cos(x)```
     // ```tan(x)```
-    env.register_builtin(Symbol::new("Sin", Structure::C)?, |arg| {
+    env.register_builtin(Symbol::new("sin", Structure::C)?, |arg| {
       Prelude::map_fixed(|[x]| Ok(x.sin()), arg) //.
     });
-    env.register_builtin(Symbol::new("Cos", Structure::C)?, |arg| {
+    env.register_builtin(Symbol::new("cos", Structure::C)?, |arg| {
       Prelude::map_fixed(|[x]| Ok(x.cos()), arg) //.
     });
-    env.register_builtin(Symbol::new("Tan", Structure::C)?, |arg| {
+    env.register_builtin(Symbol::new("tan", Structure::C)?, |arg| {
       Prelude::map_fixed(|[x]| Ok(x.tan()), arg) //.
     });
 
     // ```arcsin(x)```
     // ```arccos(x)```
     // ```arctan(x)```
-    env.register_builtin(Symbol::new("ArcSin", Structure::C)?, |arg| {
+    env.register_builtin(Symbol::new("arcsin", Structure::C)?, |arg| {
       Prelude::map_fixed(|[x]| Ok(x.arcsin()), arg) //.
     });
-    env.register_builtin(Symbol::new("ArcCos", Structure::C)?, |arg| {
+    env.register_builtin(Symbol::new("arccos", Structure::C)?, |arg| {
       Prelude::map_fixed(|[x]| Ok(x.arccos()), arg) //.
     });
-    env.register_builtin(Symbol::new("ArcTan", Structure::C)?, |arg| {
+    env.register_builtin(Symbol::new("arctan", Structure::C)?, |arg| {
       Prelude::map_fixed(|[x]| Ok(x.arctan()), arg) //.
     });
 
     // ```sinh(x)```
     // ```cosh(x)```
     // ```tanh(x)```
-    env.register_builtin(Symbol::new("Sinh", Structure::C)?, |arg| {
+    env.register_builtin(Symbol::new("sinh", Structure::C)?, |arg| {
       Prelude::map_fixed(|[x]| Ok(x.sinh()), arg) //.
     });
-    env.register_builtin(Symbol::new("Cosh", Structure::C)?, |arg| {
+    env.register_builtin(Symbol::new("cosh", Structure::C)?, |arg| {
       Prelude::map_fixed(|[x]| Ok(x.cosh()), arg) //.
     });
-    env.register_builtin(Symbol::new("Tanh", Structure::C)?, |arg| {
+    env.register_builtin(Symbol::new("tanh", Structure::C)?, |arg| {
       Prelude::map_fixed(|[x]| Ok(x.tanh()), arg) //.
     });
 
     // ```arsinh(x)```
     // ```arcosh(x)```
     // ```artanh(x)```
-    env.register_builtin(Symbol::new("ArSinh", Structure::C)?, |arg| {
+    env.register_builtin(Symbol::new("arsinh", Structure::C)?, |arg| {
       Prelude::map_fixed(|[x]| Ok(x.arsinh()), arg) //.
     });
-    env.register_builtin(Symbol::new("ArCosh", Structure::C)?, |arg| {
+    env.register_builtin(Symbol::new("arcosh", Structure::C)?, |arg| {
       Prelude::map_fixed(|[x]| Ok(x.arcosh()), arg) //.
     });
-    env.register_builtin(Symbol::new("ArTanh", Structure::C)?, |arg| {
+    env.register_builtin(Symbol::new("artanh", Structure::C)?, |arg| {
       Prelude::map_fixed(|[x]| Ok(x.artanh()), arg) //.
     });
 
     // ```exp(x)```
     // ```log(x)```
-    env.register_builtin(Symbol::new("Exp", Structure::C)?, |arg| {
+    env.register_builtin(Symbol::new("exp", Structure::C)?, |arg| {
       Prelude::map_fixed(|[x]| Ok(x.exp()), arg) //.
     });
-    env.register_builtin(Symbol::new("Log", Structure::C)?, |arg| {
+    env.register_builtin(Symbol::new("log", Structure::C)?, |arg| {
       Prelude::map_fixed(|[x]| Ok(x.log()), arg) //.
     });
 
@@ -187,27 +190,10 @@ impl Prelude {
     // ```D(x, ...) = ∂x / ∂ ... ∂```
     // ```L(x, ...) = ∫ ... ∫x d v```
     env.register_builtin(Symbol::new("D", Structure::C)?, |mut arg| {
-      let map = arg.remove(0);
-      let var = arg.into_iter().map(Symbol::try_from).collect::<Symbols>();
-      Ok(map.derivative(var.map_err(|_| None)?))
+      Ok(arg.remove(0).derivative(arg.into_iter().map(Symbol::try_from).collect::<Symbols>().map_err(|_| None)?))
     });
     env.register_builtin(Symbol::new("L", Structure::C)?, |mut arg| {
-      let map = arg.remove(0);
-      let var = arg.into_iter().map(Symbol::try_from).collect::<Symbols>();
-      Ok(map.integral(var.map_err(|_| None)?))
-    });
-
-    Some(())
-  }
-
-  /// Load manipulation functions.
-  fn load_manipulation(
-    //.
-    &self,
-    env: &mut Environment,
-  ) -> Option<()> {
-    env.register_builtin(Symbol::new("Expand", Structure::AS)?, |arg| {
-      Prelude::map_fixed(|[arg]| Ok(Tree::expand(arg).trivial().unwrap_or(Tree::Form)), arg)
+      Ok(arg.remove(0).integral(arg.into_iter().map(Symbol::try_from).collect::<Symbols>().map_err(|_| None)?))
     });
 
     Some(())
@@ -231,6 +217,19 @@ impl Prelude {
     Some(())
   }
 
+  /// Load manipulation functions.
+  fn load_manipulation(
+    //.
+    &self,
+    env: &mut Environment,
+  ) -> Option<()> {
+    env.register_builtin(Symbol::new("Expand", Structure::AS)?, |arg| {
+      Prelude::map_fixed(|[arg]| Ok(Tree::expand(arg).trivial().unwrap_or(Tree::Form)), arg)
+    });
+
+    Some(())
+  }
+
   /// Load mathematical constants.
   fn load_constants(
     //.
@@ -245,11 +244,11 @@ impl Prelude {
 
     const CONSTANTS: [Constant; 3] = [
       // i ∈ ℂ
-      Constant::I,
+      Constant::i,
       // π ∈ R∖Q
-      Constant::Pi,
+      Constant::pi,
       // e ∈ R∖Q
-      Constant::E,
+      Constant::e,
     ];
 
     for cte in CONSTANTS {

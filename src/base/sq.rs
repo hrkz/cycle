@@ -23,19 +23,21 @@ pub struct Sequence {
 
 impl Sequence {
   /// Apply sequential simplifications.
-  pub fn sq_trivial(&self) -> SymbolicResult<Tree> {
+  #[inline]
+  pub fn sq_trivial(self) -> SymbolicResult<Tree> {
+    let alg = self.algebra();
     let arg = self.arg.trivial()?;
 
     match (self.lo.trivial()?, self.up.trivial()?) {
-      //aze
+      // ```_{i=l->u} f = f[i = l] _ f[i = l + 1] _ ... _ f[i = u - 1] _ f[i = u], l ∈ ℤ, u ∈ ℤ```
       (Tree::Num(Number::Z(l)), Tree::Num(Number::Z(u))) => {
         let sq = (l..=u).map(|i| arg.clone().evaluate(Tree::Sym(self.idx.clone()), Tree::from(i)).edge()).collect();
-        Tree::assoc(self.algebra(), sq).trivial()
+        Tree::assoc(alg, sq).trivial()
       }
 
       (lo, up) => Ok(Tree::sequence_order(
         self.map, //.
-        self.idx.clone(),
+        self.idx,
         lo.edge(),
         up.edge(),
         arg.edge(),
@@ -61,12 +63,12 @@ impl fmt::Display for SqOp {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match self {
       // Sigma sum form
-      // ```S(f, i, l, u)```
+      // ```S(i, l, u, f)```
       SqOp::Sum => {
         write!(f, "S")
       }
       // Pi product form
-      // ```P(f, i, l, u)```
+      // ```P(i, l, u, f)```
       SqOp::Prod => {
         write!(f, "P")
       }

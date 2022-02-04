@@ -161,7 +161,7 @@ impl Environment {
 
   fn substitute_variable(&self, acc: &mut Term, sub: &Tree) {
     if let Some(res) = self.variables.get(sub) {
-      acc.subs(sub, res)
+      acc.subs(sub, res);
     }
   }
 
@@ -177,7 +177,7 @@ impl Environment {
 
         let mut body = res.map.clone();
         for (arg, param) in res.arg.iter().zip(arg.iter()) {
-          body.subs(arg, param)
+          body.subs(arg, param);
         }
 
         acc.subs(sub, &body);

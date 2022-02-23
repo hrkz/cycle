@@ -1,5 +1,5 @@
 /*
- Cycle v0.4.0
+ Cycle v0.4.1
  [Omega]
  Copyright (c) 2020-present, Hugo (hrkz) Frezat
 */

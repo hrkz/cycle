@@ -1,3 +1,5 @@
+#![feature(doc_auto_cfg)]
+
 //!
 //! Cycle is a **symbolic** mathematics library based on expression trees that focuses on correct,
 //! flexible and **comprehensive** manipulation of mathematical objects. Cycle can be used to study
@@ -5,24 +7,31 @@
 //! for education and research in many areas, including for example physics, astronomy, biology and
 //! artificial intelligence.
 //!
-//! ## Usage
+//! ## Important note
 //!
-//! To use cycle, you will need a modern [Rust](https://www.rust-lang.org/) version with [Cargo](https://doc.rust-lang.org/stable/cargo/)
-//! for the compilation and testing,
+//! * Cycle is a prototype.
+//! * The API is constantly evolving and substantial changes are expected prior to stable releases (x.0.0).
+//! * Feel free to suggest problems that could help to improve the library and provide realistic use cases.
+//! * Help is welcomed.
 //!
-//! ```toml
-//! [dependencies]
-//! cycle = "0.4.0"
-//! ```
+//! ## Mathematical objects
 //!
-//! ## Getting started
+//! Cycle gives the ability to manipulate mathematical objects. This forms the basis of a symbolic system
+//! and includes the following types of expressions:
 //!
-//! An extensive tutorial is currently under construction, but you can read the [online documentation](https://docs.rs/cycle)
-//! for the latest release. Note that the library is still in an early phase and API changes are expected.
+//! * [`Symbol`] represents any [mathematical object](https://en.wikipedia.org/wiki/Variable_(mathematics)).
+//! * [`Natural`], [`Integer`] and [`Rational`] represents [numbers](https://en.wikipedia.org/wiki/Number) in the arithmetic sense.
+//! * [`Constant`] represents [mathematical constants](https://en.wikipedia.org/wiki/Mathematical_constant).
+//! * [`Expr`] methods represents general [functions](https://en.wikipedia.org/wiki/Function_(mathematics)) and [operators](https://en.wikipedia.org/wiki/Operator_(mathematics)).
 //!
-//! ## Citing
+//! Examples of practical use of these objects is demonstrated in the **tests/**.
 //!
-//! We acknowledge the importance of reproducible research, in particular through open-access software. If you used Cycle, we ask that you cite the project in your work.
+//! ## Resources
+//!
+//! * [Website](#)
+//! * [Blog](#blog)
+//! * [Usage](#usage)
+//! * [Citing](#citing)
 //!
 
 #[doc(hidden)]
@@ -31,10 +40,13 @@ pub mod base;
 #[cfg(feature = "cycle_lang")]
 pub mod lang;
 
+#[cfg(feature = "cycle_num")]
+pub mod num;
+
 #[cfg(feature = "cycle_plot")]
 pub mod plot;
 
-pub use crate::base::algebra::{Constant, Form, Integer, Natural, Number, Rational, Structure, SymbolicResult, Theory};
+pub use crate::base::algebra::{Constant, Form, Integer, Natural, Number, Rational, SymbolicResult, Theory};
 pub use crate::base::{Edge, Expr, Node, Symbol, Tree};
 
 // Types reexport.

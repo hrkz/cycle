@@ -17,25 +17,32 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
-
-      - name: Installing
-        uses: actions-rs/toolchain@v1
+      - uses: actions-rs/toolchain@v1
         with:
           toolchain: ${{ matrix.toolchain }}
           profile: minimal
           override: true
-          components: rustfmt
-
-      - name: Building
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
+          components: clippy, rustfmt
 
       - name: Testing
         uses: actions-rs/cargo@v1
         with:
+          # build & run
+          # unit and integration tests
           command: test
-
+          # also test for lang, plot and num features
+          args: --all-features
+          
+      - name: Checking
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --all-features
+      - name: Documenting
+        uses: actions-rs/cargo@v1       
+        with:
+          command: doc
+          args: --all-features
       - name: Formatting
         uses: actions-rs/cargo@v1
         with:

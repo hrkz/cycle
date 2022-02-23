@@ -13,10 +13,13 @@ homepage = "https://cycle-research.org"
 repository = "https://github.com/hrkz/cycle/"
 
 [features]
-default = ["cycle_lang", "cycle_num", "cycle_plot"]
+default = []
 
+# Parsing, validation and generation of mathematical expressions.
 cycle_lang = []
+# Scientific computing on numerical data.
 cycle_num  = []
+# Generating plots from valued expressions.
 cycle_plot = []
 
 [dependencies]
@@ -25,3 +28,18 @@ cycle_plot = []
 name = "omega"
 path = "bin/omega.rs"
 test = false
+required-features = [
+  "cycle_lang"
+]
+
+[package.metadata.docs.rs]
+features = [
+  "cycle_lang", 
+  "cycle_num", 
+  "cycle_plot"
+]
+
+[package.metadata.playground]
+features = [
+  "cycle_num"
+]

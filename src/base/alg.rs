@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 use std::fmt;
 use std::ops::{Add, Mul};
 
-use crate::{Constant, Form, Integer, Number, Rational, Structure, SymbolicResult};
+use crate::{Constant, Form, Integer, Natural, Number, Rational, SymbolicResult};
 use crate::{Edge, Expr, Tree};
 
 /// A list of unary operations.
@@ -66,7 +66,7 @@ impl Algebra {
         map: UOp::Fact,
         arg,
       } => match arg.trivial()? {
-        Tree::Num(Number::Z(n)) => crate::base::algebra::factorial(n).map_or(Err(Form {}), |f| Ok(Tree::from(f))),
+        Tree::Num(Number::Int(z)) => Natural::try_from(z).map(|n| Tree::from(Integer::from(Natural::factorial(n)))).map_err(|_| Form {}),
         expr => Ok(expr.fact()),
       },
 
@@ -80,7 +80,7 @@ impl Algebra {
           // ```z∞^-∞ -> 0```
           // ```z∞^~∞ -> ?```
           (Tree::Cte(Constant::Infinity(_)), Tree::Cte(Constant::Infinity(Ordering::Greater))) => Ok(Tree::Cte(Constant::Infinity(Ordering::Equal))),
-          (Tree::Cte(Constant::Infinity(_)), Tree::Cte(Constant::Infinity(Ordering::Less))) => Ok(Tree::ZERO),
+          (Tree::Cte(Constant::Infinity(_)), Tree::Cte(Constant::Infinity(Ordering::Less))) => Ok(Tree::from(0)),
           (Tree::Cte(Constant::Infinity(_)), Tree::Cte(Constant::Infinity(Ordering::Equal))) => Err(Form {}),
 
           // ```z∞^0 = +-1^z∞ -> ?```
@@ -91,10 +91,10 @@ impl Algebra {
           // ```+~∞^y -> +~∞, y > 0```
           // ``` -∞^y ->   ∞, y mod 2 = 0```
           // ``` -∞^y ->  -∞, y mod 2 = 1```
-          (Tree::Cte(Constant::Infinity(_)), Tree::Num(rhs)) if rhs.num().is_negative() => Ok(Tree::ZERO),
+          (Tree::Cte(Constant::Infinity(_)), Tree::Num(rhs)) if rhs.num().is_negative() => Ok(Tree::from(0)),
           (Tree::Cte(Constant::Infinity(z)), Tree::Num(_)) if z.is_ge() => Ok(Tree::Cte(Constant::Infinity(z))),
-          (Tree::Cte(Constant::Infinity(Ordering::Less)), Tree::Num(rhs)) => Ok(Tree::Cte(Constant::Infinity(match (rhs.num() / rhs.den()).rem_euclid(2) {
-            0 => Ordering::Greater,
+          (Tree::Cte(Constant::Infinity(Ordering::Less)), Tree::Num(rhs)) => Ok(Tree::Cte(Constant::Infinity(match (rhs.num().clone() / rhs.den()).rem_euclid(Integer::from(2)) {
+            Integer::ZERO => Ordering::Greater,
             _ => Ordering::Less,
           }))),
 
@@ -102,8 +102,8 @@ impl Algebra {
           // ```x^+-∞ ->  0, |x|+-∞ < 0```
           // ```x^+-∞ ->  ∞, |x|+-∞ = 0, x > 0```
           // ```x^+-∞ -> ~∞, |x|+-∞ = 0, x < 0```
-          (Tree::Num(lhs), Tree::Cte(Constant::Infinity(z))) if z.is_ne() => Ok(match (lhs.num().abs().cmp(&lhs.den()).cmp(&z), lhs.num().is_positive()) {
-            (Ordering::Greater | Ordering::Less, _) => Tree::ZERO,
+          (Tree::Num(lhs), Tree::Cte(Constant::Infinity(z))) if z.is_ne() => Ok(match (Integer::from(lhs.num().clone().abs()).cmp(&lhs.den()).cmp(&z), lhs.num().is_positive()) {
+            (Ordering::Greater | Ordering::Less, _) => Tree::from(0),
             (Ordering::Equal, true) => Tree::Cte(Constant::Infinity(Ordering::Greater)),
             (Ordering::Equal, false) => Tree::Cte(Constant::Infinity(Ordering::Equal)),
           }),
@@ -113,10 +113,10 @@ impl Algebra {
           // ```i^y =  i, y mod 4 = 1```
           // ```i^y = -1, y mod 4 = 2```
           // ```i^y = -i, y mod 4 = 3```
-          (Tree::Cte(Constant::i), Tree::Num(Number::Z(rhs))) => Ok(match rhs.rem_euclid(4) {
-            0 => Tree::ONE,
-            1 => Tree::Cte(Constant::i),
-            2 => Tree::NEG_ONE,
+          (Tree::Cte(Constant::i), Tree::Num(Number::Int(rhs))) => Ok(match rhs.rem_euclid(Integer::from(4)) {
+            Integer::ZERO => Tree::from(1),
+            Integer::ONE => Tree::Cte(Constant::i),
+            Integer::TWO => Tree::from(-1),
             _ => Tree::Cte(Constant::i).neg(),
           }),
 
@@ -124,29 +124,29 @@ impl Algebra {
           // ```0^y =  0, y > 0```
           // ```0^y = ~∞, y < 0```
           // ```0^0 =  ?```
-          (Tree::ZERO, Tree::Num(rhs)) => match rhs.num().cmp(&0) {
-            Ordering::Greater => Ok(Tree::ZERO),
+          (Tree::ZERO, Tree::Num(rhs)) => match rhs.num().ord() {
+            Ordering::Greater => Ok(Tree::from(0)),
             Ordering::Less => Ok(Tree::Cte(Constant::Infinity(Ordering::Equal))),
             Ordering::Equal => Err(Form {}),
           },
 
           // ```sqrt(-1) = (-1)^(1/2) = i```
-          (Tree::NEG_ONE, Tree::Num(Number::Q(Rational { num: 1, den: 2 }))) => Ok(Tree::Cte(Constant::i)),
+          (Tree::NEG_ONE, Tree::Num(Number::Rat(Rational { num: Integer::ONE, den: Integer::TWO }))) => Ok(Tree::Cte(Constant::i)),
           // ```1^x = x^0 = 1```
-          (Tree::ONE, _) | (_, Tree::ZERO) => Ok(Tree::ONE),
+          (Tree::ONE, _) | (_, Tree::ZERO) => Ok(Tree::from(1)),
           // ```x^1 = x```
           (lhs, Tree::ONE) => Ok(lhs),
 
           // ```x ∈ ℚ, y ∈ ℤ```
-          (Tree::Num(lhs), Tree::Num(Number::Z(rhs))) => Ok(Tree::Num(lhs.powi(rhs)?)),
+          (Tree::Num(lhs), Tree::Num(Number::Int(rhs))) => Ok(Tree::Num(lhs.powi(rhs)?)),
           // ```x ∈ ℤ, y ∈ ℚ```
-          (Tree::Num(Number::Z(lhs)), Tree::Num(rhs)) => Algebra::trivial_root(lhs, rhs),
+          (Tree::Num(Number::Int(lhs)), Tree::Num(rhs)) => Algebra::trivial_root(lhs, rhs),
 
           // ```(b^e)^y = b^(e*y), y ∈ ℤ```
-          (Tree::Alg(Algebra::BExpr { map: BOp::Pow, arg: (b, e) }), rhs) if rhs.dom().le(&Structure::Z) => b.pow(e.mul(rhs)).trivial(),
+          (Tree::Alg(Algebra::BExpr { map: BOp::Pow, arg: (b, e) }), rhs) if rhs.dom().le(&Number::Z) => b.pow(e.mul(rhs)).trivial(),
 
           // ```(x_1*x_2*...*x_n)^y = x_1^y*x_2^y*...*x_n^y, y ∈ ℤ```
-          (Tree::Alg(Algebra::AssocExpr(Assoc { map: AOp::Mul, arg })), Tree::Num(rhs)) if rhs.dom().le(&Structure::Z) => {
+          (Tree::Alg(Algebra::AssocExpr(Assoc { map: AOp::Mul, arg })), Tree::Num(rhs)) if rhs.dom().le(&Number::Z) => {
             let prod = arg.into_iter().map(|sub| sub.pow(Tree::Num(rhs.clone())).edge()).collect();
             Tree::assoc(AOp::Mul, prod).trivial()
           }
@@ -163,14 +163,16 @@ impl Algebra {
 
   /// Apply root simplifications.
   pub fn trivial_root(lhs: Integer, rhs: Number) -> SymbolicResult<Tree> {
-    match rhs.clone().try_root(lhs.abs()) {
-      Some(Number::Z(1)) | None => Ok(Tree::from(lhs).pow(Tree::Num(rhs))),
+    match rhs.clone().try_root(&lhs.mag) {
+      Some(Number::Int(Integer::ONE)) | None => Ok(Tree::from(lhs).pow(Tree::Num(rhs))),
       Some(root) => {
         let root = Tree::Num(root);
         if lhs.is_negative() {
-          // ```(-x)^(p/q) = x^(p/q)*(-1)^div(p, q)*(-1)^(mod(p, q)/q)```
-          let (i, r) = rhs.divrem();
-          root.mul(Tree::NEG_ONE.pow(Tree::from(i)).mul(Tree::NEG_ONE.pow(Tree::from(Rational::new(r, rhs.den()))))).trivial()
+          // ```(-x)^(n/d) = x^(n/d)*(-1)^div(n, d)*(-1)^(mod(n, d)/d)```
+          let n = rhs.num();
+          let d = rhs.den();
+          let (q, r) = (n.clone().div_euclid(d.clone()), n.clone().rem_euclid(d));
+          root.mul(Tree::from(-1).pow(Tree::from(q)).mul(Tree::from(-1).pow(Tree::from(Rational::new(r, rhs.den()))))).trivial()
         } else {
           Ok(root)
         }
@@ -320,8 +322,7 @@ impl Assoc {
 
           // ```0*x = 0```
           (AOp::Mul, Tree::ZERO, _) => {
-            arg.resize_with(1, || Tree::edge(Tree::ZERO));
-            break;
+            return Ok(Tree::ZERO);
           }
 
           // ```x + z∞ = z∞```
@@ -330,10 +331,10 @@ impl Assoc {
           (AOp::Mul, Tree::Cte(Constant::Infinity(Ordering::Equal)), _) | (AOp::Mul, _, Tree::Cte(Constant::Infinity(Ordering::Equal))) => flat.push(Tree::Cte(Constant::Infinity(Ordering::Equal))),
 
           // ```z1∞*z2∞ = sgn(z1*z2)∞```
-          (AOp::Mul, Tree::Cte(Constant::Infinity(lhs)), Tree::Cte(Constant::Infinity(rhs))) => flat.push(Tree::Cte(Constant::Infinity(Constant::sign_cmp(lhs, rhs)))),
+          (AOp::Mul, Tree::Cte(Constant::Infinity(lhs)), Tree::Cte(Constant::Infinity(rhs))) => flat.push(Tree::Cte(Constant::Infinity(Constant::sgn_cmp(lhs, rhs)))),
 
           // ```x*z∞ = sgn(x*z)∞, x ∈ ℚ```
-          (AOp::Mul, Tree::Num(lhs), Tree::Cte(Constant::Infinity(z))) => flat.push(Tree::Cte(Constant::Infinity(Constant::sign_cmp(lhs.num().cmp(&0), z)))),
+          (AOp::Mul, Tree::Num(lhs), Tree::Cte(Constant::Infinity(z))) => flat.push(Tree::Cte(Constant::Infinity(Constant::sgn_cmp(lhs.num().ord(), z)))),
 
           // ```x, y ∈ ℚ```
           (AOp::Add, Tree::Num(lhs), Tree::Num(rhs)) => flat.push(Tree::Num(lhs.add(rhs)?)),
@@ -418,16 +419,18 @@ impl Assoc {
         })),
       ) => {
         if let Some((c, b)) = arg.split_first() {
-          return Ok((
-            Tree::assoc(AOp::Mul, b.to_vec()).trivial()?,
-            Tree::from(c), // ```c*b```
-          ));
+          if matches!(c.as_ref(), Tree::Num(_)) {
+            return Ok((
+              Tree::assoc(AOp::Mul, b.to_vec()).trivial()?,
+              Tree::from(c.clone()), // ```c*b```
+            ));
+          }
         }
       }
       (AOp::Mul, Tree::Alg(Algebra::BExpr { map: BOp::Pow, arg: (b, c) })) => {
         return Ok((
-          Tree::from(b),
-          Tree::from(c), // ```b^c```
+          Tree::from(b.clone()),
+          Tree::from(c.clone()), // ```b^c```
         ));
       }
 
@@ -438,7 +441,7 @@ impl Assoc {
 
     Ok((
       expr.clone(), // ```b```
-      Tree::ONE,
+      Tree::from(1),
     ))
   }
 

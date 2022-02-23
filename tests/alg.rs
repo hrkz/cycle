@@ -12,7 +12,7 @@ fn quadratic_equation() -> Result<(), Form> {
     (s1, s2)
   }
 
-  let x = Tree::Sym(Symbol::new("x", Structure::C).expect("failed to create symbol `x`"));
+  let x = Tree::Sym(Symbol::new("x", Number::C).expect("failed to declare symbol `x`"));
 
   let a = Tree::from(1);
   let b = Tree::from(-6);

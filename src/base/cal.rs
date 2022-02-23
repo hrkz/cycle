@@ -54,10 +54,10 @@ impl Calculus {
   pub(crate) fn differentiate<T: Expr>(expr: T, part: &Symbol) -> SymbolicResult<Tree> {
     match expr.trivial()? {
       // ```∂x/∂x = 1```
-      Tree::Sym(sym) if &sym == part => Ok(Tree::ONE),
+      Tree::Sym(sym) if &sym == part => Ok(Tree::from(1)),
       // ```∂y/∂x = 0```
       Tree::Sym(_) | Tree::Cte(_) | Tree::Num(_) => {
-        Ok(Tree::ZERO) //.
+        Ok(Tree::from(0)) //.
       }
 
       Tree::Alg(alg) => {
@@ -99,8 +99,8 @@ impl Calculus {
             arg,
           }) => {
             let pdxi = arg.iter().map(|sub| {
-              let dxi = Self::differentiate(sub.clone(), part)?;
-              Ok(dxi.edge())
+              let dfxi = Self::differentiate(sub.clone(), part)?;
+              Ok(dfxi.edge())
             });
 
             Tree::assoc(
@@ -134,9 +134,9 @@ impl Calculus {
           // ```∂(arcsin(f))/∂x = 1/sqrt(1 - f^2)```
           // ```∂(arccos(f))/∂x = -1/sqrt(1 - f^2)```
           // ```∂(arctan(f))/∂x = 1/(1 + f^2)```
-          EOp::ArcSin => Tree::ONE.div(Tree::ONE.sub(arg.pow(Tree::from(2)))).sqrt(),
-          EOp::ArcCos => Tree::NEG_ONE.div(Tree::ONE.sub(arg.pow(Tree::from(2)))).sqrt(),
-          EOp::ArcTan => Tree::ONE.div(Tree::ONE.add(arg.pow(Tree::from(2)))),
+          EOp::ArcSin => Tree::from(1).div(Tree::from(1).sub(arg.pow(Tree::from(2)))).sqrt(),
+          EOp::ArcCos => Tree::from(-1).div(Tree::from(1).sub(arg.pow(Tree::from(2)))).sqrt(),
+          EOp::ArcTan => Tree::from(1).div(Tree::from(1).add(arg.pow(Tree::from(2)))),
 
           // ```∂(sinh(f))/∂x = cosh(f)```
           // ```∂(cosh(f))/∂x = sinh(f)```
@@ -148,14 +148,14 @@ impl Calculus {
           // ```∂(arsinh(f))/∂x = 1/sqrt(1 + f^2)```
           // ```∂(arcosh(f))/∂x = 1/(sqrt(f - 1)*sqrt(f + 1))```
           // ```∂(artanh(f))/∂x = 1/(1 - f^2)```
-          EOp::ArSinh => Tree::ONE.div(Tree::ONE.add(arg.pow(Tree::from(2)))).sqrt(),
-          EOp::ArCosh => Tree::ONE.div(arg.clone().sub(Tree::ONE).sqrt().mul(arg.add(Tree::ONE).sqrt())),
-          EOp::ArTanh => Tree::ONE.div(Tree::ONE.sub(arg.pow(Tree::from(2)))),
+          EOp::ArSinh => Tree::from(1).div(Tree::from(1).add(arg.pow(Tree::from(2)))).sqrt(),
+          EOp::ArCosh => Tree::from(1).div(arg.clone().sub(Tree::from(1)).sqrt().mul(arg.add(Tree::from(1)).sqrt())),
+          EOp::ArTanh => Tree::from(1).div(Tree::from(1).sub(arg.pow(Tree::from(2)))),
 
           // ```∂(exp(f))/∂x = exp(f)```
           // ```∂(log(f))/∂x = 1/f```
           EOp::Exp => arg.exp(),
-          EOp::Log => Tree::ONE.div(arg),
+          EOp::Log => Tree::from(1).div(arg),
         };
 
         Tree::chain_rule(comp, diff, part)?.trivial()

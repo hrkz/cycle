@@ -1,12 +1,11 @@
 use crate::base::algebra::num_integer::Integer;
-use crate::base::algebra::repr::*;
 
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
 /// A rational ℚ.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct Rational {
   /// Numerator.
   pub(crate) num: Integer,
@@ -30,73 +29,60 @@ impl Rational {
   }
   /// Return `true` if `self` has a negative sign.
   pub fn is_negative(&self) -> bool {
-    (self.num < 0 && self.den > 0) || (self.num > 0 && self.den < 0)
-  }
-}
-
-impl Domain for Rational {
-  fn name(&self) -> String {
-    String::from("ℚ")
+    (self.num.is_negative() && self.den.is_positive()) || (self.num.is_positive() && self.den.is_negative())
   }
 
-  fn num(&self) -> Integer {
-    self.num
-  }
-  fn den(&self) -> Integer {
-    self.den
-  }
-
-  /// ```gcd(a/b, c/d) = gcd(a*d, c*b)/(b*d)```
-  fn gcd(u: &Self, v: &Self) -> Self {
+  /// Compute the Greatest Common Divisor (GCD) of two rationals `u` and `v`.
+  pub fn gcd(u: Self, v: Self) -> Self {
     let (a, c) = (u.num, v.num);
     let (b, d) = (u.den, v.den);
-    let ad = a * d;
-    let cb = c * b;
+    let ad = a * d.clone();
+    let cb = c * b.clone();
 
-    Self::new(
-      Integer::gcd(&ad, &cb), //.
+    Rational::new(
+      Integer::gcd(ad, cb), //.
       b * d,
     )
   }
 
-  /// ```lcm(a/b, c/d) = lcm(a, c)/gcd(b, d)```
-  fn lcm(u: &Self, v: &Self) -> Self {
+  /// Compute the Lowest Common Multiple (LCM) of two rationals `u` and `v`.
+  pub fn lcm(u: Self, v: Self) -> Self {
     let (a, c) = (u.num, v.num);
     let (b, d) = (u.den, v.den);
 
-    Self::new(
-      Integer::lcm(&a, &c), //.
-      Integer::gcd(&b, &d),
+    Rational::new(
+      Integer::lcm(a, c), //.
+      Integer::gcd(b, d),
     )
   }
 }
 
 impl Eq for Rational {}
 impl PartialEq for Rational {
-  fn eq(&self, other: &Rational) -> bool {
-    self.cmp(other) == Ordering::Equal
+  fn eq(&self, o: &Rational) -> bool {
+    self.cmp(o) == Ordering::Equal
   }
 }
 
 impl PartialOrd for Rational {
-  fn partial_cmp(&self, other: &Rational) -> Option<Ordering> {
-    Some(self.cmp(other))
+  fn partial_cmp(&self, o: &Rational) -> Option<Ordering> {
+    Some(self.cmp(o))
   }
 }
 
 impl Ord for Rational {
   fn cmp(
     &self,
-    other: &Rational, // finite recursive quo/rem cmp
+    o: &Rational, // finite recursive quo/rem cmp
   ) -> Ordering {
-    let (lhs_int, rhs_int) = (self.num / self.den, other.num / other.den);
-    let (lhs_rem, rhs_rem) = (self.num % self.den, other.num % other.den);
+    let (lhs_int, rhs_int) = (self.num.clone() / self.den.clone(), o.num.clone() / o.den.clone());
+    let (lhs_rem, rhs_rem) = (self.num.clone() % self.den.clone(), o.num.clone() % o.den.clone());
     let int_cmp = lhs_int.cmp(&rhs_int);
 
     if int_cmp != Ordering::Equal {
       int_cmp
     } else {
-      match (lhs_rem != 0, rhs_rem != 0) {
+      match (lhs_rem != Integer::ZERO, rhs_rem != Integer::ZERO) {
         (false, false) => {
           Ordering::Equal //.
         }
@@ -108,8 +94,8 @@ impl Ord for Rational {
         }
         (true, true) => {
           // ```a/(a % b) < c/(c % d)```
-          let lhs_recip = Rational::new(self.den, lhs_rem);
-          let rhs_recip = Rational::new(other.den, rhs_rem);
+          let lhs_recip = Rational::new(self.den.clone(), lhs_rem);
+          let rhs_recip = Rational::new(o.den.clone(), rhs_rem);
           lhs_recip.cmp(&rhs_recip).reverse()
         }
       }
@@ -128,7 +114,7 @@ impl From<Integer> for Rational {
   fn from(n: Integer) -> Self {
     Rational::new(
       n, //.
-      1,
+      Integer::ONE,
     )
   }
 }
@@ -137,13 +123,13 @@ impl Add for Rational {
   type Output = Rational;
 
   /// ```a/b + c/d = (a*lcm/b + c*lcm/d)/lcm where lcm = lcm(b,d)```
-  fn add(self, o: Self) -> Self::Output {
-    let (a, c) = (self.num, o.num);
-    let (b, d) = (self.den, o.den);
+  fn add(self, rhs: Self) -> Self::Output {
+    let (a, c) = (self.num, rhs.num);
+    let (b, d) = (self.den, rhs.den);
 
-    let lcm = Integer::lcm(&b, &d);
+    let lcm = Integer::lcm(b.clone(), d.clone());
     Rational::new(
-      a * lcm / b + c * lcm / d, //.
+      a * lcm.clone() / b + c * lcm.clone() / d, //.
       lcm,
     )
   }
@@ -153,13 +139,13 @@ impl Sub for Rational {
   type Output = Rational;
 
   /// ```a/b - c/d = (lcm/b*a - lcm/d*c)/lcm, where lcm = lcm(b,d)```
-  fn sub(self, o: Self) -> Self::Output {
-    let (a, c) = (self.num, o.num);
-    let (b, d) = (self.den, o.den);
+  fn sub(self, rhs: Self) -> Self::Output {
+    let (a, c) = (self.num, rhs.num);
+    let (b, d) = (self.den, rhs.den);
 
-    let lcm = Integer::lcm(&b, &d);
+    let lcm = Integer::lcm(b.clone(), d.clone());
     Rational::new(
-      lcm / b * a - lcm / d * c, //.
+      lcm.clone() / b * a - lcm.clone() / d * c, //.
       lcm,
     )
   }
@@ -169,15 +155,15 @@ impl Mul for Rational {
   type Output = Rational;
 
   /// ```a/b * c/d = (a/gcd_ad)*(c/gcd_bc) / ((d/gcd_ad)*(b/gcd_bc))```
-  fn mul(self, o: Self) -> Self::Output {
-    let (a, c) = (self.num, o.num);
-    let (b, d) = (self.den, o.den);
+  fn mul(self, rhs: Self) -> Self::Output {
+    let (a, c) = (self.num, rhs.num);
+    let (b, d) = (self.den, rhs.den);
 
-    let gcd_ad = Integer::gcd(&a, &d);
-    let gcd_bc = Integer::gcd(&b, &c);
+    let gcd_ad = Integer::gcd(a.clone(), d.clone());
+    let gcd_bc = Integer::gcd(b.clone(), c.clone());
 
     Rational::new(
-      a / gcd_ad * c / gcd_bc, //.
+      a / gcd_ad.clone() * c / gcd_bc.clone(), //.
       d / gcd_ad * b / gcd_bc,
     )
   }
@@ -187,15 +173,15 @@ impl Div for Rational {
   type Output = Rational;
 
   /// ```a/b / c/d = (a/gcd_ac)*(d/gcd_bd) / ((c/gcd_ac)*(b/gcd_bd))```
-  fn div(self, o: Self) -> Self::Output {
-    let (a, c) = (self.num, o.num);
-    let (b, d) = (self.den, o.den);
+  fn div(self, rhs: Self) -> Self::Output {
+    let (a, c) = (self.num, rhs.num);
+    let (b, d) = (self.den, rhs.den);
 
-    let gcd_ac = Integer::gcd(&a, &c);
-    let gcd_bd = Integer::gcd(&b, &d);
+    let gcd_ac = Integer::gcd(a.clone(), c.clone());
+    let gcd_bd = Integer::gcd(b.clone(), d.clone());
 
     Rational::new(
-      a / gcd_ac * d / gcd_bd, //.
+      a / gcd_ac.clone() * d / gcd_bd.clone(), //.
       c / gcd_ac * b / gcd_bd,
     )
   }
@@ -217,79 +203,123 @@ mod tests {
   use super::*;
 
   #[test]
-  fn dom() {
-    let r1_2 = Rational::new(1, 2);
-    let r2_1 = Rational::new(2, 1);
-    let r2_5 = Rational::new(2, 5);
-    let r4_5 = Rational::new(4, 5);
-    let r7_2 = Rational::new(7, 2);
-    let r3_9 = Rational::new(3, 9);
+  fn euclid() {
+    type Z = Integer;
+    type Q = Rational;
 
     // trivial path: u, v = 0
-    assert_eq!(Domain::gcd(&r1_2, &Rational::from(0)), r1_2);
-    assert_eq!(Domain::lcm(&r1_2, &Rational::from(0)), Rational::from(0));
-    // u = v
-    assert_eq!(Domain::gcd(&r2_5, &r2_5), r2_5);
-    assert_eq!(Domain::lcm(&r2_5, &r2_5), r2_5);
-    // v % u = 0
-    assert_eq!(Domain::gcd(&r2_5, &r4_5), r2_5);
-    assert_eq!(Domain::lcm(&r2_5, &r4_5), r4_5);
-    // v % u != 0
-    assert_eq!(Domain::gcd(&r7_2, &r4_5), Rational::new(1, 10));
-    assert_eq!(Domain::gcd(&r1_2, &r3_9), Rational::new(3, 18));
-    assert_eq!(Domain::lcm(&r2_5, &r7_2), Rational::new(14, 1));
-    assert_eq!(Domain::lcm(&r3_9, &r2_1), Rational::new(6, 1));
+    assert_eq!(Q::gcd(Q::new(Z::from(1), Z::from(2)), Rational::from(Z::from(0))), Q::new(Z::from(1), Z::from(2)));
+    assert_eq!(Q::lcm(Q::new(Z::from(1), Z::from(2)), Rational::from(Z::from(0))), Rational::from(Z::from(0)));
 
-    let m0 = Rational::new(13, 121);
-    let u0 = Rational::new(234, 19);
-    let v0 = Rational::new(32, 7);
+    let m0 = Q::new(Z::from(13), Z::from(121));
+    let u0 = Q::new(Z::from(234), Z::from(19));
+    let v0 = Q::new(Z::from(32), Z::from(7));
 
     // commutative ```gcd(u, v) = gcd(v, u)```
-    assert_eq!(Domain::gcd(&u0, &v0), Domain::gcd(&v0, &u0));
+    assert_eq!(
+      Q::gcd(u0.clone(), v0.clone()), //=
+      Q::gcd(v0.clone(), u0.clone())
+    );
     // associative ```gcd(u, gcd(v, m)) = gcd(gcd(u, v), m)```
-    assert_eq!(Domain::gcd(&u0, &Domain::gcd(&v0, &m0)), Domain::gcd(&Domain::gcd(&u0, &v0), &m0));
+    assert_eq!(
+      Q::gcd(u0.clone(), Q::gcd(v0.clone(), m0.clone())), //=
+      Q::gcd(Q::gcd(u0.clone(), v0.clone()), m0.clone())
+    );
 
     // ```lcm(u, gcd(u, v)) = u```
-    assert_eq!(Domain::lcm(&u0, &Domain::gcd(&u0, &v0)), u0);
-    // ```lcm(u, gcd(v, m)) = gcd(lcm(u, v), lcm(u, m))```
-    assert_eq!(Domain::lcm(&u0, &Domain::gcd(&v0, &m0)), Domain::gcd(&Domain::lcm(&u0, &v0), &Domain::lcm(&u0, &m0)));
+    assert_eq!(
+      Q::lcm(u0.clone(), Q::gcd(u0.clone(), v0.clone())), //=
+      u0.clone()
+    );
     // ```lcm(u, v)*gcd(u, v) = u*v```
-    assert_eq!(Domain::lcm(&u0, &v0) * Domain::gcd(&u0, &v0), u0 * v0);
+    assert_eq!(
+      Q::lcm(u0.clone(), v0.clone()) * Q::gcd(u0.clone(), v0.clone()), //=
+      u0.clone() * v0.clone()
+    );
+    // ```lcm(u, gcd(v, m)) = gcd(lcm(u, v), lcm(u, m))```
+    assert_eq!(
+      Q::gcd(Q::lcm(u0.clone(), v0.clone()), Q::lcm(u0.clone(), m0.clone())), //=
+      Q::lcm(u0, Q::gcd(v0, m0))
+    );
   }
 
   #[test]
   fn ops() {
-    let r1_1 = Rational::from(1);
-    let r1_2 = Rational::new(1, 2);
-    let r2_1 = Rational::new(2, 1);
-    let n1_2 = Rational::new(-1, 2);
-    let r3_7 = Rational::new(3, 7);
-    let r9_4 = Rational::new(9, 4);
+    type Z = Integer;
+    type Q = Rational;
+
+    let r1_1 = Q::from(Z::from(1));
+    let r1_2 = Q::new(Z::from(1), Z::from(2));
+    let r2_1 = Q::new(Z::from(2), Z::from(1));
+    let n1_2 = Q::new(Z::from(-1), Z::from(2));
+    let r3_7 = Q::new(Z::from(3), Z::from(7));
+    let r9_4 = Q::new(Z::from(9), Z::from(4));
 
     // u = v
-    assert_eq!(r1_2 + r1_2, Rational::new(1, 1));
-    assert_eq!(r1_2 * r1_2, Rational::new(1, 4));
-    // a/b = b/a
-    assert_eq!(r1_2 + r2_1, Rational::new(5, 2));
-    assert_eq!(r1_2 * r2_1, Rational::new(1, 1));
-    // a/b = a/c
-    assert_eq!(r1_2 + r1_1, Rational::new(3, 2));
-    assert_eq!(r1_2 * r1_1, Rational::new(1, 2));
-    // a/b = -a/b
-    assert_eq!(r1_2 + n1_2, Rational::new(0, 1));
-    assert_eq!(r1_2 * n1_2, Rational::new(-1, 4));
-    // a/b = c/d
-    assert_eq!(r3_7 + r1_2, Rational::new(13, 14));
-    assert_eq!(r3_7 * r1_2, Rational::new(3, 14));
-    assert_eq!(r3_7 + r9_4, Rational::new(75, 28));
-    assert_eq!(r3_7 * r9_4, Rational::new(27, 28));
+    assert_eq!(r1_2.clone() + r1_2.clone(), Q::new(Z::from(1), Z::from(1)));
+    assert_eq!(r1_2.clone() * r1_2.clone(), Q::new(Z::from(1), Z::from(4)));
+    // v = a/b, v = b/a
+    assert_eq!(r1_2.clone() + r2_1.clone(), Q::new(Z::from(5), Z::from(2)));
+    assert_eq!(r1_2.clone() * r2_1.clone(), Q::new(Z::from(1), Z::from(1)));
+    // u = a/b, v = a/c
+    assert_eq!(r1_2.clone() + r1_1.clone(), Q::new(Z::from(3), Z::from(2)));
+    assert_eq!(r1_2.clone() * r1_1.clone(), Q::new(Z::from(1), Z::from(2)));
+    // u = a/b, v = -a/b
+    assert_eq!(r1_2.clone() + n1_2.clone(), Q::new(Z::from(0), Z::from(1)));
+    assert_eq!(r1_2.clone() * n1_2.clone(), Q::new(Z::from(-1), Z::from(4)));
+    // u = a/b, v = c/d
+    assert_eq!(r3_7.clone() + r1_2.clone(), Q::new(Z::from(13), Z::from(14)));
+    assert_eq!(r3_7.clone() * r1_2.clone(), Q::new(Z::from(3), Z::from(14)));
+    assert_eq!(r3_7.clone() + r9_4.clone(), Q::new(Z::from(75), Z::from(28)));
+    assert_eq!(r3_7.clone() * r9_4.clone(), Q::new(Z::from(27), Z::from(28)));
+
+    // ```a/b * b/a = 1```
+    assert_eq!(
+      r3_7.clone() * Q::new(r3_7.den.clone(), r3_7.num.clone()), //=
+      r1_1.clone()
+    );
+    assert_eq!(
+      r9_4.clone() * Q::new(r9_4.den.clone(), r9_4.num.clone()), //=
+      r1_1.clone()
+    );
 
     // ```a/b - c/d = a/b + -c/d```
-    assert_eq!(r3_7 - r1_2, r3_7 + r1_2.neg());
-    assert_eq!(r3_7 - r9_4, r3_7 + r9_4.neg());
+    assert_eq!(
+      r3_7.clone() - r1_2.clone(), //=
+      r3_7.clone() + r1_2.clone().neg()
+    );
+    assert_eq!(
+      r3_7.clone() - r9_4.clone(), //=
+      r3_7.clone() + r9_4.clone().neg()
+    );
 
     // ```a/b / c/d = a/b * d/c```
-    assert_eq!(r3_7 / r1_2, r3_7 * Rational::new(r1_2.den, r1_2.num));
-    assert_eq!(r3_7 / r9_4, r3_7 * Rational::new(r9_4.den, r9_4.num));
+    assert_eq!(
+      r3_7.clone() / r1_2.clone(), //=
+      r3_7.clone() * Q::new(r1_2.den.clone(), r1_2.num.clone())
+    );
+    assert_eq!(
+      r3_7.clone() / r9_4.clone(), //=
+      r3_7.clone() * Q::new(r9_4.den.clone(), r9_4.num.clone())
+    );
+
+    // commutative ```u + v = v + u, u * v = v * u```
+    assert_eq!(
+      r3_7.clone() + r9_4.clone(), //=
+      r9_4.clone() + r3_7.clone()
+    );
+    assert_eq!(
+      r3_7.clone() * r9_4.clone(), //=
+      r9_4.clone() * r3_7.clone()
+    );
+    // associative ```m + (u + v) = (m + u) + v, m * (u * v) = (m * u) * v```
+    assert_eq!(
+      n1_2.clone() + (r3_7.clone() + r9_4.clone()), //=
+      (n1_2.clone() + r9_4.clone()) + r3_7.clone()
+    );
+    assert_eq!(
+      n1_2.clone() * (r3_7.clone() * r9_4.clone()), //=
+      (n1_2.clone() * r9_4.clone()) * r3_7.clone()
+    );
   }
 }

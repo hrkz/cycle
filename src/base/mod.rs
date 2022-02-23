@@ -17,7 +17,7 @@ use std::hash::{Hash, Hasher};
 use std::iter;
 use std::sync::Arc;
 
-use algebra::{Constant, Form, Integer, Number, Rational, Structure, SymbolicResult};
+use algebra::{Constant, Form, Integer, Number, NumberSystem, Rational, SymbolicResult};
 
 pub use alg::{Algebra, Assoc};
 pub use cal::Calculus;
@@ -30,12 +30,12 @@ pub struct Symbol {
   /// Name of the symbol.
   name: Arc<str>,
   /// Domain on which its structure applies.
-  dom: Structure,
+  dom: NumberSystem,
 }
 
 impl Symbol {
   /// Create a new symbol in a structure.
-  pub fn new(name: &str, dom: Structure) -> Option<Symbol> {
+  pub fn new(name: &str, dom: NumberSystem) -> Option<Symbol> {
     if name.contains(
       &[
         '#', '~', // special
@@ -145,7 +145,7 @@ pub trait Expr: Sized {
 
   /// ```-a = (-1)*a```
   fn neg(self) -> Tree {
-    Tree::NEG_ONE.mul(self)
+    Tree::from(-1).mul(self)
   }
 
   /// ```a - b = a + (-b)```
@@ -163,7 +163,7 @@ pub trait Expr: Sized {
     self,
     o: T,
   ) -> Tree {
-    self.mul(o.pow(Tree::NEG_ONE))
+    self.mul(o.pow(Tree::from(-1)))
   }
 
   /// ```x!```
@@ -192,12 +192,12 @@ pub trait Expr: Sized {
     self,
     o: T,
   ) -> Tree {
-    self.pow(Tree::ONE.div(o))
+    self.pow(Tree::from(1).div(o))
   }
 
   /// ```√a = a^(1/2)```
   fn sqrt(self) -> Tree {
-    self.pow(Tree::HALF)
+    self.pow(Tree::from(Rational::new(Integer::from(1), Integer::from(2))))
   }
 
   /// ```sin(x)```
@@ -327,7 +327,7 @@ pub trait Expr: Sized {
   fn nontrivial(self) -> Tree {
     let name = if let Some(name) = self.name().split("::").last() { name } else { self.name() };
 
-    let map = Symbol::new(name, Structure::AS).expect("incorrect expression name");
+    let map = Symbol::new(name, NumberSystem::AS).expect("incorrect expression name");
     let arg = self.visit(Vec::new(), |mut acc, e| {
       acc.push(e.clone());
       acc
@@ -535,16 +535,20 @@ where
 }
 
 impl Tree {
-  pub const ZERO: Tree = Tree::Num(Number::Z(0));
-  pub const ONE: Tree = Tree::Num(Number::Z(1));
-  pub const NEG_ONE: Tree = Tree::Num(Number::Z(-1));
-  pub const HALF: Tree = Tree::Num(Number::Q(Rational::new(1, 2)));
-  pub const QUARTER: Tree = Tree::Num(Number::Q(Rational::new(1, 4)));
+  /// The additive identity 0.
+  pub const ZERO: Tree = Tree::Num(Number::Int(Integer::ZERO));
+  /// The multiplicative identity 1.
+  pub const ONE: Tree = Tree::Num(Number::Int(Integer::ONE));
+  /// The multiplicative double 2.
+  pub const TWO: Tree = Tree::Num(Number::Int(Integer::TWO));
+  /// The negative identity -1.
+  pub const NEG_ONE: Tree = Tree::Num(Number::Int(Integer::NEG_ONE));
 
+  /// Maximum mapping precedence.
   pub const MAP_PREC: u64 = 5;
 
   /// Determine the applying domain.
-  pub fn dom(&self) -> Structure {
+  pub fn dom(&self) -> NumberSystem {
     match self {
       Tree::Sym(s) => s.dom,
       Tree::Cte(c) => c.dom(),
@@ -554,7 +558,7 @@ impl Tree {
     | Tree::Fun(_)
     | Tree::Cal(_)
     | Tree::Sq(_) => {
-        self.iter().fold(Structure::AS, |acc, e| acc.max(e.dom()))
+        self.iter().fold(NumberSystem::AS, |acc, e| acc.max(e.dom()))
       }
     }
   }
@@ -923,28 +927,24 @@ impl TryFrom<Tree> for Symbol {
   }
 }
 
-impl From<Integer> for Tree {
-  fn from(z: Integer) -> Self {
-    Tree::Num(Number::Z(z))
+impl<T> From<T> for Tree
+where
+  Integer: From<T>,
+{
+  fn from(z: T) -> Self {
+    Tree::Num(Number::Int(Integer::from(z)))
   }
 }
 
 impl From<Rational> for Tree {
   fn from(q: Rational) -> Self {
-    Tree::Num(Number::Q(q))
+    Tree::Num(Number::Rat(q))
   }
 }
 
 impl From<Edge> for Tree {
   #[inline]
   fn from(edge: Edge) -> Tree {
-    (*edge).clone()
-  }
-}
-
-impl From<&Edge> for Tree {
-  #[inline]
-  fn from(edge: &Edge) -> Tree {
-    (**edge).clone()
+    Arc::try_unwrap(edge).unwrap_or_else(|tree| (*tree).clone())
   }
 }

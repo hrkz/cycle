@@ -165,15 +165,15 @@ impl<'t> Parser<'t> {
         src,
       } => {
         let num = src
-          .parse::<u64>() // ∈ ℕ
+          .parse::<Natural>() // ∈ ℕ
           .map_err(|err| Error {
-            kind: ErrorKind::Parsing(format!("{err}")),
+            kind: ErrorKind::Parsing(format!("{err:?}")),
             spot: Some(loc),
           })?;
 
-        Ok(Tree::Num(Number::Z(Integer::from(
+        Ok(Tree::from(
           num, //.
-        ))))
+        ))
       }
 
       TokenState {
@@ -182,7 +182,7 @@ impl<'t> Parser<'t> {
         loc,
         src,
       } => {
-        let sym = Symbol::new(src, Structure::C).ok_or(Error {
+        let sym = Symbol::new(src, Number::C).ok_or(Error {
           kind: ErrorKind::Parsing(format!("valid symbol name, got `{src}`")),
           spot: Some(loc),
         })?;
@@ -381,7 +381,7 @@ impl Prefix {
   ) -> Term {
     match (self, rhs) {
       (Prefix::Pos, e) => e,
-      (Prefix::Neg, Tree::Num(Number::Z(z))) => Tree::Num(Number::Z(-z)),
+      (Prefix::Neg, Tree::Num(Number::Int(z))) => Tree::Num(Number::Int(-z)),
       (Prefix::Neg, e) => e.neg(),
     }
   }

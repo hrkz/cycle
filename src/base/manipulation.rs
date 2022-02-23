@@ -96,7 +96,7 @@ impl Tree {
     Evaluate { arg: self, mat, sub }
   }
 
-  /// Expands out products and positive integer powers.
+  /// Expand products and positive integer powers.
   pub fn expand(self) -> impl Expr {
     Expand { arg: self }
   }

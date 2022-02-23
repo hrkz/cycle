@@ -24,7 +24,7 @@ fn main() -> io::Result<()> {
   if let Some(filename) = env::args().nth(1) {
     env.file(filename)
   } else {
-    println!("Cycle 0.4.0 :: omega");
+    println!("Cycle 0.4.1 :: omega");
     env.repl()
   }
 }
@@ -93,14 +93,10 @@ struct Prelude;
 
 impl Package for Prelude {
   fn build(&self, env: &mut Environment) -> Result<(), lang::Error> {
-    self
-      .load_elementary(env)
-      .and(self.load_calculus(env))
-      .and(self.load_sequence(env))
-      .and(self.load_manipulation(env))
-      .expect(
-        "failed to load basic packages", //.
-      );
+    self.load_elementary(env);
+    self.load_calculus(env);
+    self.load_sequence(env);
+    self.load_manipulation(env);
 
     self.load_constants(
       env, //.
@@ -114,69 +110,67 @@ impl Prelude {
     //.
     &self,
     env: &mut Environment,
-  ) -> Option<()> {
+  ) {
     // ```sin(x)```
     // ```cos(x)```
     // ```tan(x)```
-    env.register_builtin(Symbol::new("sin", Structure::C)?, |arg| {
+    env.register_builtin(Symbol::new("sin", Number::C).expect("failed to declare symbol `sin`"), |arg| {
       Prelude::map_fixed(|[x]| Ok(x.sin()), arg) //.
     });
-    env.register_builtin(Symbol::new("cos", Structure::C)?, |arg| {
+    env.register_builtin(Symbol::new("cos", Number::C).expect("failed to declare symbol `cos`"), |arg| {
       Prelude::map_fixed(|[x]| Ok(x.cos()), arg) //.
     });
-    env.register_builtin(Symbol::new("tan", Structure::C)?, |arg| {
+    env.register_builtin(Symbol::new("tan", Number::C).expect("failed to declare symbol `tan`"), |arg| {
       Prelude::map_fixed(|[x]| Ok(x.tan()), arg) //.
     });
 
     // ```arcsin(x)```
     // ```arccos(x)```
     // ```arctan(x)```
-    env.register_builtin(Symbol::new("arcsin", Structure::C)?, |arg| {
+    env.register_builtin(Symbol::new("arcsin", Number::C).expect("failed to declare symbol `arcsin`"), |arg| {
       Prelude::map_fixed(|[x]| Ok(x.arcsin()), arg) //.
     });
-    env.register_builtin(Symbol::new("arccos", Structure::C)?, |arg| {
+    env.register_builtin(Symbol::new("arccos", Number::C).expect("failed to declare symbol `arccos`"), |arg| {
       Prelude::map_fixed(|[x]| Ok(x.arccos()), arg) //.
     });
-    env.register_builtin(Symbol::new("arctan", Structure::C)?, |arg| {
+    env.register_builtin(Symbol::new("arctan", Number::C).expect("failed to declare symbol `arctan`"), |arg| {
       Prelude::map_fixed(|[x]| Ok(x.arctan()), arg) //.
     });
 
     // ```sinh(x)```
     // ```cosh(x)```
     // ```tanh(x)```
-    env.register_builtin(Symbol::new("sinh", Structure::C)?, |arg| {
+    env.register_builtin(Symbol::new("sinh", Number::C).expect("failed to declare symbol `sinh`"), |arg| {
       Prelude::map_fixed(|[x]| Ok(x.sinh()), arg) //.
     });
-    env.register_builtin(Symbol::new("cosh", Structure::C)?, |arg| {
+    env.register_builtin(Symbol::new("cosh", Number::C).expect("failed to declare symbol `cosh`"), |arg| {
       Prelude::map_fixed(|[x]| Ok(x.cosh()), arg) //.
     });
-    env.register_builtin(Symbol::new("tanh", Structure::C)?, |arg| {
+    env.register_builtin(Symbol::new("tanh", Number::C).expect("failed to declare symbol `tanh`"), |arg| {
       Prelude::map_fixed(|[x]| Ok(x.tanh()), arg) //.
     });
 
     // ```arsinh(x)```
     // ```arcosh(x)```
     // ```artanh(x)```
-    env.register_builtin(Symbol::new("arsinh", Structure::C)?, |arg| {
+    env.register_builtin(Symbol::new("arsinh", Number::C).expect("failed to declare symbol `arsinh`"), |arg| {
       Prelude::map_fixed(|[x]| Ok(x.arsinh()), arg) //.
     });
-    env.register_builtin(Symbol::new("arcosh", Structure::C)?, |arg| {
+    env.register_builtin(Symbol::new("arcosh", Number::C).expect("failed to declare symbol `arcosh`"), |arg| {
       Prelude::map_fixed(|[x]| Ok(x.arcosh()), arg) //.
     });
-    env.register_builtin(Symbol::new("artanh", Structure::C)?, |arg| {
+    env.register_builtin(Symbol::new("artanh", Number::C).expect("failed to declare symbol `artanh`"), |arg| {
       Prelude::map_fixed(|[x]| Ok(x.artanh()), arg) //.
     });
 
     // ```exp(x)```
     // ```log(x)```
-    env.register_builtin(Symbol::new("exp", Structure::C)?, |arg| {
+    env.register_builtin(Symbol::new("exp", Number::C).expect("failed to declare symbol `exp`"), |arg| {
       Prelude::map_fixed(|[x]| Ok(x.exp()), arg) //.
     });
-    env.register_builtin(Symbol::new("log", Structure::C)?, |arg| {
+    env.register_builtin(Symbol::new("log", Number::C).expect("failed to declare symbol `log`"), |arg| {
       Prelude::map_fixed(|[x]| Ok(x.log()), arg) //.
     });
-
-    Some(())
   }
 
   /// Load calculus operators.
@@ -184,19 +178,17 @@ impl Prelude {
     //.
     &self,
     env: &mut Environment,
-  ) -> Option<()> {
+  ) {
     type Symbols = Result<Vec<Symbol>, Form>;
 
     // ```D(x, ...) = ∂x / ∂ ... ∂```
     // ```L(x, ...) = ∫ ... ∫x d v```
-    env.register_builtin(Symbol::new("D", Structure::C)?, |mut arg| {
+    env.register_builtin(Symbol::new("D", Number::C).expect("failed to declare symbol `D`"), |mut arg| {
       Ok(arg.remove(0).derivative(arg.into_iter().map(Symbol::try_from).collect::<Symbols>().map_err(|_| None)?))
     });
-    env.register_builtin(Symbol::new("L", Structure::C)?, |mut arg| {
+    env.register_builtin(Symbol::new("L", Number::C).expect("failed to declare symbol `L`"), |mut arg| {
       Ok(arg.remove(0).integral(arg.into_iter().map(Symbol::try_from).collect::<Symbols>().map_err(|_| None)?))
     });
-
-    Some(())
   }
 
   /// Load sequential operators.
@@ -204,17 +196,15 @@ impl Prelude {
     //.
     &self,
     env: &mut Environment,
-  ) -> Option<()> {
+  ) {
     // ```S(i, l, u, x) = x[i = l] + x[i = l + 1] + ... + x[i = u - 1] + x[i = u]```
     // ```P(i, l, u, x) = x[i = l]*x[i = l + 1]*...*x[i = u - 1]*x[i = u]```
-    env.register_builtin(Symbol::new("S", Structure::C)?, |arg| {
+    env.register_builtin(Symbol::new("S", Number::C).expect("failed to declare symbol `S`"), |arg| {
       Prelude::map_fixed(|[idx, lo, up, arg]| Ok(arg.sum(Symbol::try_from(idx).map_err(|_| None)?, lo, up)), arg)
     });
-    env.register_builtin(Symbol::new("P", Structure::C)?, |arg| {
+    env.register_builtin(Symbol::new("P", Number::C).expect("failed to declare symbol `P`"), |arg| {
       Prelude::map_fixed(|[idx, lo, up, arg]| Ok(arg.product(Symbol::try_from(idx).map_err(|_| None)?, lo, up)), arg)
     });
-
-    Some(())
   }
 
   /// Load manipulation functions.
@@ -222,12 +212,10 @@ impl Prelude {
     //.
     &self,
     env: &mut Environment,
-  ) -> Option<()> {
-    env.register_builtin(Symbol::new("Expand", Structure::AS)?, |arg| {
+  ) {
+    env.register_builtin(Symbol::new("Expand", Number::AS).expect("failed to declare symbol `Expand`"), |arg| {
       Prelude::map_fixed(|[arg]| Ok(Tree::expand(arg).trivial().unwrap_or(Tree::Form)), arg)
     });
-
-    Some(())
   }
 
   /// Load mathematical constants.
@@ -238,7 +226,7 @@ impl Prelude {
   ) -> Result<(), lang::Error> {
     // Identifier `oo` for Infinity.
     env.eval(Ast::Def(
-      Tree::Sym(Symbol::new("oo", Structure::AS).expect("failed to declare Infinity")),
+      Tree::Sym(Symbol::new("oo", Number::AS).expect("failed to declare symbol `oo`")),
       Tree::Cte(Constant::Infinity(cmp::Ordering::Greater)),
     ))?;
 

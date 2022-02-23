@@ -29,10 +29,24 @@ impl Sequence {
     let arg = self.arg.trivial()?;
 
     match (self.lo.trivial()?, self.up.trivial()?) {
-      // ```_{i=l->u} f = f[i = l] _ f[i = l + 1] _ ... _ f[i = u - 1] _ f[i = u], l ∈ ℤ, u ∈ ℤ```
-      (Tree::Num(Number::Z(l)), Tree::Num(Number::Z(u))) => {
-        let sq = (l..=u).map(|i| arg.clone().evaluate(Tree::Sym(self.idx.clone()), Tree::from(i)).edge()).collect();
-        Tree::assoc(alg, sq).trivial()
+      // ```_{k=l->u} f = f[k = l] _ f[k = l + 1] _ ... _ f[k = u - 1] _ f[k = u], l ∈ ℤ, u ∈ ℤ```
+      (Tree::Num(Number::Int(l)), Tree::Num(Number::Int(u))) => {
+        let mut k = l;
+        let sq = std::iter::from_fn(|| {
+          if k < u {
+            let e = arg.clone().evaluate(Tree::Sym(self.idx.clone()), Tree::from(k.clone())).edge();
+            k.incr();
+            Some(e)
+          } else {
+            None
+          }
+        });
+
+        Tree::assoc(
+          alg, //.
+          sq.collect(),
+        )
+        .trivial()
       }
 
       (lo, up) => Ok(Tree::sequence_order(
@@ -63,12 +77,12 @@ impl fmt::Display for SqOp {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match self {
       // Sigma sum form
-      // ```S(i, l, u, f)```
+      // ```S(k, l, u, f)```
       SqOp::Sum => {
         write!(f, "S")
       }
       // Pi product form
-      // ```P(i, l, u, f)```
+      // ```P(k, l, u, f)```
       SqOp::Prod => {
         write!(f, "P")
       }

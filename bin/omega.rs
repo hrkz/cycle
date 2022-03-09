@@ -52,9 +52,10 @@ impl Interact for Environment {
       stmt.clear();
       print!("Ω > ");
       io::stdout().flush()?;
-      io::stdin().read_line(&mut stmt)?;
+      let len = io::stdin().read_line(&mut stmt)?;
 
-      if stmt.trim_end().eq("break") {
+      // `len` is 0 if we reached EOF (e.g. CTRL+D)
+      if len == 0 || stmt.trim_end().eq("break") {
         return Ok(());
       }
 
